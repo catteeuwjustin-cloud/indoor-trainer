@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Indoor Trainer</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171b22; --panel2:#1f2530; --text:#e8ecf2; --muted:#8a94a6; --line:#2a313d;
+    --z1:#7f8a99; --z2:#3b8ef0; --z3:#2fbf71; --z4:#f2c230; --z5:#f2802f; --z6:#e5484d;
+    --ok:#2fbf71; --warn:#f2c230; --bad:#e5484d; --accent:#3b8ef0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
+  button:hover{border-color:#3d4656}
+  button.primary{background:var(--accent);border-color:var(--accent);font-weight:600}
+  button.on{background:#1d3a2a;border-color:var(--ok)}
+  input[type=number]{width:70px;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  select{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{font-weight:700;letter-spacing:.3px}
+  .brand small{color:var(--muted);font-weight:400;margin-left:8px}
+  .group{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .dev .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:7px;vertical-align:middle}
+  .dev.connected .dot{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+  .dev.connecting .dot{background:var(--warn)}
+  main{padding:14px 16px;display:grid;gap:12px}
+  .title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .title h1{margin:0;font-size:20px;font-weight:600}
+  .title .meta{color:var(--muted);font-size:14px}
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+  .tile .lbl{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
+  .tile .val{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px;white-space:nowrap}
+  .tile .val small{font-size:16px;color:var(--muted);font-weight:500;margin-left:4px}
+  .tile .sub{color:var(--muted);font-size:14px;margin-top:2px;min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile.big .val{font-size:72px}
+  .tile.span2{grid-column:span 2}
+  #tPower.ok{border-color:var(--ok)} #tPower.ok .val span{color:var(--ok)}
+  #tPower.low{border-color:var(--warn)} #tPower.low .val span{color:var(--warn)}
+  #tPower.high{border-color:var(--bad)} #tPower.high .val span{color:var(--bad)}
+  .segbar{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:8px}
+  .segbar .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .segbar .now{font-size:20px;font-weight:600}
+  .segbar .next{color:var(--muted)}
+  .prog{height:12px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .prog > div{height:100%;width:0;background:var(--accent);transition:width .2s linear}
+  .chartwrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;height:260px;position:relative}
+  canvas{width:100%;height:100%;display:block}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+  .controls .group label{color:var(--muted);font-size:14px;display:flex;gap:6px;align-items:center}
+  #btnStart{min-width:140px;font-size:18px}
+  .stats{display:flex;flex-wrap:wrap;gap:18px;color:var(--muted);font-size:14px}
+  .stats b{color:var(--text);font-variant-numeric:tabular-nums}
+  #toast{position:fixed;left:50%;top:80px;transform:translateX(-50%);background:#000c;border:1px solid var(--line);padding:16px 26px;border-radius:14px;font-size:26px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9;text-align:center}
+  #toast.show{opacity:1}
+  #log{color:var(--muted);font-size:12px;max-height:60px;overflow:auto;white-space:pre-wrap}
+  .music{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:10px}
+  .mhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .mhead label{color:var(--muted);font-size:14px;display:flex;gap:6px;align-items:center}
+  .mnow{color:var(--muted);font-size:14px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  main > *{min-width:0}
+  .decks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .deck{min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;gap:6px;transition:border-color .5s}
+  .deck.live{border-color:var(--ok)}
+  .dlbl{font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .dlbl small{color:var(--muted)}
+  .dlbl select{flex:1 1 120px;min-width:0;width:0}
+  .vid{aspect-ratio:16/9;max-height:180px;background:#000;border-radius:6px;overflow:hidden}
+  .vid iframe{width:100%;height:100%;display:block}
+  .meter{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+  .meter>div{height:100%;width:0;background:var(--ok)}
+  .madd{display:flex;gap:8px}
+  .madd input{flex:1;min-width:0;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  @media (max-width:640px){.decks{grid-template-columns:minmax(0,1fr)}}
+  dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;max-width:640px;width:92vw}
+  dialog textarea{width:100%;height:240px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:14px ui-monospace,Menlo,monospace;padding:10px}
+  dialog p, dialog li{color:var(--muted);font-size:14px}
+  dialog code{color:var(--text)}
+  .warnbox{background:#3a2a10;border:1px solid var(--warn);color:#f5dc9a;padding:10px 14px;border-radius:10px;font-size:14px}
+  @media (max-width:1100px){.tiles{grid-template-columns:repeat(4,1fr)} .tile.big .val{font-size:56px} .tile .val{font-size:36px}}
+  @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)} .tile .val{font-size:34px} .tile.big .val{font-size:44px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">⚡ Indoor Trainer <small>workouts volgen via Bluetooth</small></div>
+  <div class="group">
+    <button id="btnTrainer" class="dev"><span class="dot"></span>Trainer</button>
+    <button id="btnPedals" class="dev"><span class="dot"></span>Vermogenspedalen</button>
+    <button id="btnHr" class="dev"><span class="dot"></span>Hartslag</button>
+    <button id="btnDemo" class="dev"><span class="dot"></span>Demo</button>
+  </div>
+  <div class="group">
+    <label style="color:var(--muted)">FTP <input id="ftp" type="number" min="50" max="600" value="250"> W</label>
+    <button id="btnLoad">Workout laden</button>
+    <input type="file" id="file" accept=".zwo,.erg,.mrc,.fit,.txt,.xml" hidden>
+    <button id="btnEdit">Zelf invoeren</button>
+    <button id="btnFull" title="Volledig scherm">⛶</button>
+  </div>
+</header>
+
+<main>
+  <div id="noBt" class="warnbox" hidden>Deze browser ondersteunt geen Web Bluetooth. Open deze pagina in <b>Google Chrome</b> of <b>Microsoft Edge</b> (Safari werkt niet).</div>
+
+  <div class="title">
+    <h1 id="wName">–</h1>
+    <div class="meta" id="wMeta"></div>
+  </div>
+
+  <section class="tiles">
+    <div class="tile big span2" id="tTarget"><div class="lbl">Doelvermogen</div><div class="val"><span id="vTarget">--</span><small>W</small></div><div class="sub" id="vTargetSub"></div></div>
+    <div class="tile big span2" id="tPower"><div class="lbl">Vermogen (3s)</div><div class="val"><span id="vPower">--</span><small>W</small></div><div class="sub" id="vPowerSub"></div></div>
+    <div class="tile"><div class="lbl">Cadans</div><div class="val"><span id="vCad">--</span><small>rpm</small></div><div class="sub" id="vCadSub"></div></div>
+    <div class="tile"><div class="lbl">Hartslag</div><div class="val"><span id="vHr">--</span><small>bpm</small></div><div class="sub" id="vHrSub"></div></div>
+    <div class="tile span2"><div class="lbl">Interval resterend</div><div class="val" id="vSegLeft">--:--</div><div class="sub" id="vSegSub"></div></div>
+    <div class="tile"><div class="lbl">Totale tijd</div><div class="val" id="vElapsed">0:00</div><div class="sub" id="vRemain"></div></div>
+    <div class="tile"><div class="lbl" id="lRes">Weerstand</div><div class="val"><span id="vRes">--</span><small id="vResUnit"></small></div><div class="sub" id="vResSub">trainer</div></div>
+    <div class="tile"><div class="lbl">L / R balans</div><div class="val" id="vBal" style="font-size:34px">--</div><div class="sub">pedalen</div></div>
+    <div class="tile"><div class="lbl">Snelheid</div><div class="val"><span id="vSpeed">--</span><small>km/u</small></div><div class="sub" id="vDist"></div></div>
+  </section>
+
+  <section class="segbar">
+    <div class="row"><div class="now" id="segNow">Laad een workout en druk op Start</div><div class="next" id="segNext"></div></div>
+    <div class="prog"><div id="segProg"></div></div>
+  </section>
+
+  <div class="chartwrap"><canvas id="chart"></canvas></div>
+
+  <section class="music">
+    <div class="mhead">
+      <b>🎧 Muziek · KI/KI live</b>
+      <label><input type="checkbox" id="musicOn" checked> aan</label>
+      <label>Volume <input type="range" id="musicVol" min="0" max="100" value="70"></label>
+      <select id="musicMode">
+        <option value="xfade">Wisselt rustig ↔ hard met de workout</option>
+        <option value="single">Eén set, volume volgt intensiteit</option>
+      </select>
+      <span id="musicNow" class="mnow"></span>
+    </div>
+    <div class="decks">
+      <div class="deck" id="deckA"><div class="dlbl">Rustig <small>(Z1–Z3)</small> <select id="selA"></select></div><div class="vid"><div id="ytA"></div></div><div class="meter"><div id="mA"></div></div></div>
+      <div class="deck" id="deckB"><div class="dlbl">Hard <small>(Z4 en hoger)</small> <select id="selB"></select></div><div class="vid"><div id="ytB"></div></div><div class="meter"><div id="mB"></div></div></div>
+    </div>
+    <div class="madd"><input id="musicUrl" placeholder="Plak een YouTube-link van een andere set om toe te voegen"><button id="btnAddSet">Toevoegen</button></div>
+  </section>
+
+  <section class="controls">
+    <div class="group">
+      <button id="btnStart" class="primary">▶ Start</button>
+      <button id="btnPrev" title="Vorig interval">⏮</button>
+      <button id="btnNext" title="Volgend interval">⏭</button>
+      <button id="btnStop">⏹ Stop</button>
+    </div>
+    <div class="group">
+      <label>Intensiteit</label>
+      <button id="btnIntDown">−5%</button>
+      <b id="vInt" style="min-width:52px;text-align:center">100%</b>
+      <button id="btnIntUp">+5%</button>
+    </div>
+    <div class="group" id="resCtl" title="Zelf instellen — actief bij ERG uit of bij vrij rijden">
+      <select id="freeMode"><option value="res">Weerstand</option><option value="grade">Helling</option></select>
+      <button id="btnResDown">−</button>
+      <b id="vManRes" style="min-width:60px;text-align:center">20%</b>
+      <button id="btnResUp">+</button>
+    </div>
+    <div class="group">
+      <button id="btnErg" class="on" title="Trainer stuurt automatisch het doelvermogen aan">ERG aan</button>
+      <button id="btnMatch" title="Corrigeer de trainer zodat je pedalen het doelvermogen meten">Power match uit</button>
+      <label>Vermogensbron
+        <select id="src"><option value="auto">Automatisch</option><option value="pedals">Pedalen</option><option value="trainer">Trainer</option></select>
+      </label>
+      <label><input type="checkbox" id="autoPause" checked> Auto-pauze</label>
+      <label><input type="checkbox" id="sound" checked> Piepjes</label>
+    </div>
+    <div class="group">
+      <button id="btnTcx">⬇ Rit exporteren (.tcx)</button>
+    </div>
+  </section>
+
+  <section class="stats">
+    <span>Gem. vermogen <b id="sAvg">–</b></span>
+    <span>NP <b id="sNp">–</b></span>
+    <span>IF <b id="sIf">–</b></span>
+    <span>TSS <b id="sTss">–</b></span>
+    <span>Arbeid <b id="sKj">–</b></span>
+    <span>Gem. cadans <b id="sCad">–</b></span>
+    <span>Gem. HR <b id="sHr">–</b></span>
+    <span>Trainer stuurt <b id="sCmd">–</b></span>
+    <span>Trainer meet <b id="sTrainerP">–</b></span>
+    <span>Pedalen meten <b id="sPedalP">–</b></span>
+  </section>
+  <div id="log"></div>
+</main>
+
+<div id="toast"></div>
+
+<dialog id="dlgEdit">
+  <h3 style="margin-top:0">Workout zelf invoeren</h3>
+  <p>Eén stap per regel. Percentages zijn van je FTP, of gebruik <code>W</code> voor watt.</p>
+  <ul>
+    <li><code>10m 50-75%</code> — oplopend (warming-up)</li>
+    <li><code>5m 65%</code> — constant</li>
+    <li><code>4x 4m 105% / 3m 55%</code> — herhaling</li>
+    <li><code>30s 300W 100rpm</code> — met cadansdoel</li>
+    <li><code>5m vrij</code> — vrij rijden (geen ERG)</li>
+    <li>Tijd: <code>90s</code>, <code>1m30s</code>, <code>1:30</code>, <code>1h</code>. Eerste regel met <code># naam</code> wordt de titel.</li>
+  </ul>
+  <textarea id="txtWorkout"></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+    <button id="btnEditCancel">Annuleren</button>
+    <button id="btnEditOk" class="primary">Laden</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ===================== Helpers ===================== */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}` : `${m}:${String(x).padStart(2,'0')}`; };
+const fmtDur = s => s >= 60 ? (s%60 ? `${Math.floor(s/60)}m${s%60}s` : `${s/60} min`) : `${s}s`;
+function log(msg){ const el = $('log'); el.textContent = (new Date().toLocaleTimeString()+'  '+msg+'\n'+el.textContent).slice(0,3000); console.log(msg); }
+function toast(msg, ms=2500){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'), ms); }
+const ZONES = [[0.55,'--z1','Z1 Herstel'],[0.75,'--z2','Z2 Duur'],[0.90,'--z3','Z3 Tempo'],[1.05,'--z4','Z4 Drempel'],[1.20,'--z5','Z5 VO2max'],[9,'--z6','Z6 Anaeroob']];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const zoneOf = f => ZONES.find(z => f < z[0]);
+
+/* ===================== State ===================== */
+const S = {
+  ftp: 250, intensity: 1, erg: true, match: false,
+  workout: null,           // {name, segs:[{dur,lo,hi,unit,free,cad,label,start}], total}
+  running: false, autoPaused: false, finished: false,
+  t: 0, lastTick: performance.now(), segIdx: -1,
+  startedAt: null, rec: [], lastRecSec: -1,
+  trainer: { power: null, cad: null, speed: null, hr: null, last: 0 },
+  pedals:  { power: null, cad: null, bal: null, last: 0, crank: null },
+  hrm:     { hr: null, last: 0 },
+  powerBuf: [], idleSince: null,
+  ergCmd: null, lastCmdSent: null, lastCmdTime: 0, matchOffset: 0, manualRes: 20, grade: 1, freeMode: 'res', lastResSent: null, resFallback: false,
+  dist: 0,
+};
+try { const f = +localStorage.getItem('ftp'); if (f) S.ftp = f; } catch(e){}
+$('ftp').value = S.ftp;
+
+/* ===================== Workout model ===================== */
+function finalizeWorkout(name, segs, meta=''){
+  segs = segs.filter(s => s.dur > 0);
+  let t = 0; segs.forEach(s => { s.start = t; t += s.dur; });
+  return { name: name || 'Workout', segs, total: t, meta };
+}
+function segWatts(s, frac){ // frac 0..1 position within segment
+  if (s.free) return null;
+  const v = s.lo + (s.hi - s.lo) * clamp(frac,0,1);
+  return Math.round((s.unit === 'w' ? v : v * S.ftp) * S.intensity);
+}
+function segFtpFrac(s, v){ return s.unit === 'w' ? v / S.ftp : v; }
+function segAt(t){
+  const w = S.workout; if (!w || !w.segs.length) return -1;
+  for (let i=0;i<w.segs.length;i++){ if (t < w.segs[i].start + w.segs[i].dur) return i; }
+  return w.segs.length;
+}
+function segDesc(s){
+  if (!s) return '';
+  if (s.free) return `${s.label || 'Vrij rijden'} · ${fmtDur(s.dur)}`;
+  const lo = segWatts(s,0), hi = segWatts(s,1);
+  const pct = v => Math.round(segFtpFrac(s,v)*100*S.intensity);
+  const p = lo === hi ? `${lo} W (${pct(s.lo)}%)` : `${lo}→${hi} W (${pct(s.lo)}–${pct(s.hi)}%)`;
+  return `${s.label ? s.label+' · ' : ''}${p} · ${fmtDur(s.dur)}${s.cad ? ' · '+s.cad+' rpm' : ''}`;
+}
+
+/* ---------- ZWO (Zwift) ---------- */
+function parseZWO(txt){
+  const doc = new DOMParser().parseFromString(txt, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Ongeldig ZWO-bestand');
+  const name = doc.querySelector('workout_file > name, name')?.textContent?.trim();
+  const wk = doc.querySelector('workout'); if (!wk) throw new Error('Geen <workout> gevonden');
+  const segs = [];
+  for (const el of wk.children){
+    const a = k => { const v = el.getAttribute(k) ?? el.getAttribute(k.toLowerCase()); return v == null ? NaN : parseFloat(v); };
+    const tag = el.tagName.toLowerCase(), dur = a('Duration'), cad = a('Cadence') || null;
+    const lbl = el.querySelector('textevent')?.getAttribute('message') || null;
+    if (tag === 'steadystate'){ let p = a('Power'); if (isNaN(p)) p = (a('PowerLow')+a('PowerHigh'))/2; segs.push({dur, lo:p, hi:p, unit:'ftp', cad}); }
+    else if (['warmup','cooldown','ramp'].includes(tag)){
+      segs.push({dur, lo:a('PowerLow'), hi:a('PowerHigh'), unit:'ftp', cad, label: tag==='warmup'?'Warming-up':tag==='cooldown'?'Cooling-down':null});
+    }
+    else if (tag === 'intervalst'){
+      const rep = a('Repeat') || 1;
+      const on = !isNaN(a('OnPower')) ? a('OnPower') : (a('PowerOnLow')+a('PowerOnHigh'))/2;
+      const off = !isNaN(a('OffPower')) ? a('OffPower') : (a('PowerOffLow')+a('PowerOffHigh'))/2;
+      for (let i=0;i<rep;i++){
+        segs.push({dur:a('OnDuration'), lo:on, hi:on, unit:'ftp', cad, label:`Interval ${i+1}/${rep}`});
+        segs.push({dur:a('OffDuration'), lo:off, hi:off, unit:'ftp', cad:a('CadenceResting')||null, label:'Herstel'});
+      }
+    }
+    else if (tag === 'freeride' || tag === 'maxeffort'){ segs.push({dur, free:true, label: tag==='maxeffort'?'Max effort':'Vrij rijden'}); }
+    if (lbl && segs.length && !segs[segs.length-1].label) segs[segs.length-1].label = lbl;
+  }
+  return finalizeWorkout(name, segs, 'ZWO');
+}
+
+/* ---------- ERG / MRC ---------- */
+function parseERG(txt){
+  let inData = false, unit = 'w', name = null; const pts = [];
+  for (let line of txt.split(/\r?\n/)){
+    line = line.trim(); if (!line) continue;
+    if (/^\[COURSE DATA\]/i.test(line)){ inData = true; continue; }
+    if (/^\[END COURSE DATA\]/i.test(line)){ inData = false; continue; }
+    if (!inData){
+      if (/PERCENT/i.test(line) && /MINUTES/i.test(line)) unit = 'ftp';
+      const m = line.match(/^(?:DESCRIPTION|FILE NAME)\s*=\s*(.+)$/i); if (m && !name) name = m[1].trim();
+      continue;
+    }
+    const m = line.match(/^(-?[\d.]+)\s+(-?[\d.]+)/); if (m) pts.push([+m[1], +m[2]]);
+  }
+  if (pts.length < 2) throw new Error('Geen data gevonden in ERG/MRC-bestand');
+  const segs = [];
+  for (let i=0;i<pts.length-1;i++){
+    const dur = Math.round((pts[i+1][0]-pts[i][0])*60); if (dur <= 0) continue;
+    const k = unit === 'ftp' ? 0.01 : 1;
+    segs.push({dur, lo:pts[i][1]*k, hi:pts[i+1][1]*k, unit});
+  }
+  return finalizeWorkout(name, mergeFlat(segs), unit === 'ftp' ? 'MRC' : 'ERG');
+}
+function mergeFlat(segs){ // merge consecutive identical flat pieces
+  const out = [];
+  for (const s of segs){
+    const p = out[out.length-1];
+    if (p && !p.free && !s.free && p.lo===p.hi && s.lo===s.hi && p.lo===s.lo && p.unit===s.unit) p.dur += s.dur; else out.push({...s});
+  }
+  return out;
+}
+
+/* ---------- FIT workout (Garmin) ---------- */
+function parseFIT(buf){
+  const dv = new DataView(buf);
+  const hs = dv.getUint8(0), dataSize = dv.getUint32(4, true);
+  if (String.fromCharCode(dv.getUint8(8),dv.getUint8(9),dv.getUint8(10),dv.getUint8(11)) !== '.FIT') throw new Error('Geen geldig FIT-bestand');
+  const defs = {}, msgs = [];
+  let p = hs; const end = Math.min(hs + dataSize, buf.byteLength);
+  const SIZES = {0:1,1:1,2:1,3:2,4:2,5:4,6:4,7:1,8:4,9:8,10:1,11:2,12:4,13:1,14:8,15:8,16:8};
+  const readVal = (type, off, size, le) => {
+    const bt = type & 0x1F;
+    if (bt === 7){ let s=''; for (let i=0;i<size;i++){ const c = dv.getUint8(off+i); if (!c) break; s += String.fromCharCode(c); } try { return decodeURIComponent(escape(s)); } catch(e){ return s; } }
+    if (SIZES[bt] !== size) return null;
+    let v;
+    switch(bt){
+      case 1: v = dv.getInt8(off); return v === 0x7F ? null : v;
+      case 0: case 2: case 10: case 13: v = dv.getUint8(off); return (v === 0xFF || (bt===10 && v===0)) ? null : v;
+      case 3: v = dv.getInt16(off,le); return v === 0x7FFF ? null : v;
+      case 4: case 11: v = dv.getUint16(off,le); return v === 0xFFFF ? null : v;
+      case 5: v = dv.getInt32(off,le); return v === 0x7FFFFFFF ? null : v;
+      case 6: case 12: v = dv.getUint32(off,le); return v === 0xFFFFFFFF ? null : v;
+      case 8: return dv.getFloat32(off,le);
+      case 9: return dv.getFloat64(off,le);
+      default: return null;
+    }
+  };
+  const readData = (d, off) => {
+    const o = { _g: d.gmn };
+    for (const f of d.fields){ o[f.num] = readVal(f.type, off, f.size, d.le); off += f.size; }
+    msgs.push(o); return off + d.devSize;
+  };
+  while (p < end){
+    const h = dv.getUint8(p++);
+    if (h & 0x80){ const d = defs[(h>>5)&3]; if (!d) break; p = readData(d, p); continue; }
+    const lt = h & 0x0F;
+    if (h & 0x40){
+      p++; const le = dv.getUint8(p++) === 0; const gmn = dv.getUint16(p, le); p += 2;
+      const n = dv.getUint8(p++); const fields = [];
+      for (let i=0;i<n;i++){ fields.push({num:dv.getUint8(p), size:dv.getUint8(p+1), type:dv.getUint8(p+2)}); p += 3; }
+      let devSize = 0;
+      if (h & 0x20){ const nd = dv.getUint8(p++); for (let i=0;i<nd;i++){ devSize += dv.getUint8(p+1); p += 3; } }
+      defs[lt] = { gmn, le, fields, devSize };
+    } else { const d = defs[lt]; if (!d) break; p = readData(d, p); }
+  }
+  const name = msgs.find(m => m._g === 26)?.[8];
+  const steps = msgs.filter(m => m._g === 27).sort((a,b) => (a[254]??0) - (b[254]??0));
+  if (!steps.length) throw new Error('Dit FIT-bestand bevat geen workout-stappen (is het een rit i.p.v. een workout?)');
+  const pw = v => v == null ? null : (v > 1000 ? {v:v-1000, unit:'w'} : {v:v/100, unit:'ftp'});
+  const ZONE_PCT = [0,0.5,0.65,0.83,0.98,1.13,1.35,1.6];
+  const INT = {0:null,1:'Herstel',2:'Warming-up',3:'Cooling-down',4:'Herstel',5:'Interval'};
+  const mkSeg = s => {
+    let dur = s[1] === 0 && s[2] != null ? Math.round(s[2]/1000) : 300; // tijd in ms; open/andere stappen: 5 min
+    const label = (s[0] && !/^\d+:\d+@\d+%$/.test(s[0]) ? s[0] : null) || INT[s[7]] || (s[1] !== 0 ? 'Open stap (5 min)' : null);
+    if ([4,7,8,9,10].includes(s[3])){ // power target (4=power, 7–10=power 3s/10s/30s/lap; JOIN gebruikt 7)
+      if (s[4] && s[4] > 0 && s[4] <= 7){ const z = ZONE_PCT[s[4]]; return {dur, lo:z, hi:z, unit:'ftp', label}; }
+      const lo = pw(s[5]), hi = pw(s[6]) || lo;
+      if (lo){ const mid = (lo.v + hi.v)/2; // JOIN/Garmin: bereik -> midden
+        return {dur, lo:mid, hi:mid, unit:lo.unit, label, range:[lo.v,hi.v]}; }
+    }
+    const cad = s[3] === 3 && s[5] ? Math.round((s[5] + (s[6]||s[5]))/2) : null;
+    return {dur, free:true, cad, label: label || 'Vrij rijden'};
+  };
+  const out = [], counters = {}; let i = 0, guard = 0;
+  while (i < steps.length && guard++ < 20000){
+    const s = steps[i];
+    if (s[1] === 6){ counters[i] = (counters[i]||0) + 1; if (counters[i] < (s[4]||1)) i = s[2] ?? 0; else { counters[i] = 0; i++; } continue; }
+    if (s[1] > 6 && s[1] <= 14 && s[1] !== 5) { i++; continue; } // overige repeat-types overslaan
+    out.push(mkSeg(s)); i++;
+  }
+  return finalizeWorkout(name, out, 'FIT');
+}
+
+/* ---------- Tekst-formaat ---------- */
+function parseDur(s){
+  s = s.trim().toLowerCase();
+  let m = s.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (m) return m[3] != null ? (+m[1])*3600 + (+m[2])*60 + (+m[3]) : (+m[1])*60 + (+m[2]);
+  let t = 0, any = false;
+  for (const x of s.matchAll(/(\d+(?:[.,]\d+)?)\s*(h|u|min|m|s|sec)?/g)){
+    if (!x[1]) continue; any = true; const v = parseFloat(x[1].replace(',','.'));
+    t += v * ({h:3600,u:3600,min:60,m:60,s:1,sec:1}[x[2]||'m']);
+  }
+  return any ? Math.round(t) : NaN;
+}
+function parseStep(str){
+  str = str.trim();
+  const m = str.match(/^((?:\d+(?:[.,]\d+)?\s*(?:h|u|min|m|sec|s)\s*)+|\d+:\d{1,2}(?::\d{1,2})?)\s*(.*)$/i);
+  if (!m) throw new Error(`Kan duur niet lezen: "${str}"`);
+  const dur = parseDur(m[1]); let rest = m[2];
+  let cad = null; rest = rest.replace(/(\d+)\s*rpm/i, (_,c) => { cad = +c; return ''; });
+  if (/\b(vrij|free)\b/i.test(rest)) return {dur, free:true, cad, label: rest.replace(/\b(vrij|free)\b/i,'').trim() || 'Vrij rijden'};
+  let pm = rest.match(/(\d+(?:[.,]\d+)?)\s*(%|w)?\s*(?:-|–|→|>|to|tot)\s*(\d+(?:[.,]\d+)?)\s*(%|w)?/i);
+  let lo, hi, unit;
+  if (pm){ lo = parseFloat(pm[1].replace(',','.')); hi = parseFloat(pm[3].replace(',','.')); unit = (pm[4]||pm[2]||'%').toLowerCase(); }
+  else { pm = rest.match(/(\d+(?:[.,]\d+)?)\s*(%|w)/i); if (!pm) throw new Error(`Geen vermogen gevonden in "${str}" (gebruik bv. 70% of 200W)`);
+    lo = hi = parseFloat(pm[1].replace(',','.')); unit = pm[2].toLowerCase(); }
+  const label = rest.replace(pm[0],'').replace(/["']/g,'').trim() || null;
+  return unit === 'w' ? {dur, lo, hi, unit:'w', cad, label} : {dur, lo:lo/100, hi:hi/100, unit:'ftp', cad, label};
+}
+function parseText(txt){
+  let name = null; const segs = [];
+  for (let line of txt.split(/\r?\n/)){
+    line = line.trim(); if (!line) continue;
+    if (line.startsWith('#')){ if (!name) name = line.replace(/^#+/,'').trim(); continue; }
+    const r = line.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+    if (r){ const n = +r[1]; const parts = r[2].split(/\s*[\/;,+]\s*/).filter(Boolean).map(parseStep);
+      for (let i=0;i<n;i++) parts.forEach((p,j) => segs.push({...p, label: p.label || (j===0 ? `Interval ${i+1}/${n}` : 'Herstel')})); }
+    else segs.push(parseStep(line));
+  }
+  if (!segs.length) throw new Error('Geen stappen gevonden');
+  return finalizeWorkout(name || 'Eigen workout', segs, 'Eigen');
+}
+
+const DEFAULT_TXT = `# Voorbeeld: 4×4 min drempel
+10m 45-70% Warming-up
+3x 30s 110% / 30s 50%
+3m 55%
+4x 4m 100% 90rpm / 3m 55%
+8m 65-40% Cooling-down`;
+
+function loadWorkout(w){
+  if (!w.segs.length) throw new Error('Workout is leeg');
+  stopRide(true);
+  S.workout = w;
+  try { localStorage.setItem('lastWorkout', JSON.stringify(w)); } catch(e){}
+  $('wName').textContent = w.name;
+  updateMeta();
+  log(`Workout geladen: ${w.name} (${w.segs.length} stappen, ${fmt(w.total)})`);
+  render(true);
+}
+function updateMeta(){
+  const w = S.workout; if (!w) return;
+  // geschatte TSS van workout
+  let sum4 = 0, n = 0;
+  for (const s of w.segs){ for (let k=0;k<s.dur;k+=5){ const f = s.free ? 0.5 : segFtpFrac(s, s.lo + (s.hi-s.lo)*k/s.dur) * S.intensity; sum4 += Math.pow(f,4)*Math.min(5,s.dur-k); n += Math.min(5,s.dur-k); } }
+  const IF = Math.pow(sum4/n, 0.25), tss = (w.total/3600) * IF*IF*100;
+  $('wMeta').textContent = `${fmt(w.total)} · ${w.segs.length} stappen · IF ${IF.toFixed(2)} · ~${Math.round(tss)} TSS · ${w.meta}`;
+}
+
+/* ===================== Bluetooth ===================== */
+const UUID = {
+  FTMS: 0x1826, INDOOR_BIKE: 0x2ad2, FTMS_CP: 0x2ad9, FTMS_STATUS: 0x2ada, FTMS_FEATURE: 0x2acc,
+  CPS: 0x1818, CP_MEAS: 0x2a63, HRS: 0x180d, HR_MEAS: 0x2a37,
+  FEC: '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e', FEC_TX: '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e', FEC_RX: '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e',
+};
+const DEV = { trainer: null, pedals: null, hrm: null };
+let cpQueue = Promise.resolve();
+
+function setDevBtn(id, state){ const b = $(id); b.classList.toggle('connected', state==='on'); b.classList.toggle('connecting', state==='wait'); }
+
+async function connectGatt(device, kind, btnId, setup){
+  setDevBtn(btnId, 'wait');
+  const server = await device.gatt.connect();
+  await setup(server);
+  setDevBtn(btnId, 'on');
+  log(`${kind} verbonden: ${device.name || 'onbekend'}`);
+  toast(`${kind} verbonden`);
+}
+function watchDisconnect(device, kind, btnId, setup){
+  device.addEventListener('gattserverdisconnected', async () => {
+    setDevBtn(btnId, 'off'); log(`${kind} verbinding verbroken — opnieuw verbinden…`);
+    for (let i=0;i<10;i++){
+      if (DEV[kind]?.device !== device) return;
+      try { await new Promise(r => setTimeout(r, 1500)); await connectGatt(device, kind, btnId, setup); return; } catch(e){ log(`Opnieuw verbinden mislukt (${i+1}): ${e.message}`); }
+    }
+    setDevBtn(btnId, 'off');
+  });
+}
+
+/* ---------- Trainer (FTMS of Tacx FE-C) ---------- */
+async function connectTrainer(){
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [{ services: [UUID.FTMS] }, { services: [UUID.FEC] }],
+    optionalServices: [UUID.FTMS, UUID.FEC, UUID.CPS, UUID.HRS],
+  });
+  DEV.trainer = { device };
+  const setup = async server => {
+    let ftms = null; try { ftms = await server.getPrimaryService(UUID.FTMS); } catch(e){}
+    if (ftms){
+      const ibd = await ftms.getCharacteristic(UUID.INDOOR_BIKE);
+      ibd.addEventListener('characteristicvaluechanged', e => parseIndoorBike(e.target.value));
+      await ibd.startNotifications();
+      const cp = await ftms.getCharacteristic(UUID.FTMS_CP);
+      cp.addEventListener('characteristicvaluechanged', e => {
+        const v = e.target.value; if (v.getUint8(0) === 0x80 && v.getUint8(2) !== 1){
+          log(`Trainer weigerde commando 0x${v.getUint8(1).toString(16)} (code ${v.getUint8(2)})`);
+          if (v.getUint8(1) === 0x04 && !S.resFallback){ // weerstandsniveau niet ondersteund -> via helling
+            S.resFallback = true; S.lastResSent = null; S.lastCmdTime = 0;
+            toast('Trainer ondersteunt geen weerstandsniveau — weerstand wordt via helling geregeld', 4000);
+          }
+        }
+      });
+      await cp.startNotifications();
+      DEV.trainer.proto = 'ftms'; DEV.trainer.cp = cp;
+      try { // ondersteund weerstandsbereik (min/max in 0.1-eenheden)
+        const rv = await (await ftms.getCharacteristic(0x2ad6)).readValue();
+        S.trainer.resRange = { min: rv.getInt16(0, true), max: rv.getInt16(2, true) };
+        log(`Weerstandsbereik trainer: ${S.trainer.resRange.min/10} – ${S.trainer.resRange.max/10}`);
+      } catch(e){ S.trainer.resRange = null; }
+      await cpWrite([0x00]);          // request control
+      await cpWrite([0x07]);          // start/resume
+    } else {
+      const fec = await server.getPrimaryService(UUID.FEC);
+      const rx = await fec.getCharacteristic(UUID.FEC_RX);
+      rx.addEventListener('characteristicvaluechanged', e => parseFEC(e.target.value));
+      await rx.startNotifications();
+      DEV.trainer.proto = 'fec'; DEV.trainer.cp = await fec.getCharacteristic(UUID.FEC_TX);
+    }
+    S.lastCmdSent = null; S.lastResSent = null; S.resFallback = false;
+  };
+  watchDisconnect(device, 'trainer', 'btnTrainer', setup);
+  await connectGatt(device, 'trainer', 'btnTrainer', setup);
+}
+function cpWrite(bytes){
+  const t = DEV.trainer; if (!t?.cp) return Promise.resolve();
+  const data = new Uint8Array(bytes);
+  cpQueue = cpQueue.then(() => (t.cp.writeValueWithResponse ? t.cp.writeValueWithResponse(data) : t.cp.writeValue(data)))
+                   .catch(e => log('Schrijven naar trainer mislukt: ' + e.message));
+  return cpQueue;
+}
+function fecPacket(page){ // ANT+ FE-C over BLE (Tacx): 0xA4 len 0x4F ch payload(8) checksum
+  const msg = [0xA4, 0x09, 0x4F, 0x05, ...page];
+  msg.push(msg.reduce((a,b) => a ^ b, 0));
+  return msg;
+}
+function sendTargetPower(w){
+  const t = DEV.trainer; if (!t?.cp) return;
+  w = clamp(Math.round(w), 0, 2000);
+  if (t.proto === 'ftms') cpWrite([0x05, w & 0xFF, (w >> 8) & 0xFF]);
+  else { const v = w*4; cpWrite(fecPacket([0x31,0xFF,0xFF,0xFF,0xFF,0xFF, v & 0xFF, (v>>8) & 0xFF])); }
+}
+function sendResistance(pct){ // handmatige weerstand 0–100%
+  const t = DEV.trainer; if (!t?.cp) return;
+  if (t.proto === 'fec'){ cpWrite(fecPacket([0x30,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, Math.round(pct*2)])); return; } // FE-C page 48, 0.5%-stappen
+  if (S.resFallback){ sendGrade(pct/10); return; } // 0–10% helling
+  const rr = S.trainer.resRange || { min: 0, max: 250 }; // FTMS-standaard: 1 byte, stappen van 0.1
+  const lvl = Math.max(0, Math.round(rr.min + pct/100 * (rr.max - rr.min))); // in 0.1-eenheden
+  cpWrite(lvl <= 255 ? [0x04, lvl] : [0x04, lvl & 0xFF, (lvl>>8) & 0xFF]);
+}
+function sendGrade(g){ // simulatie: helling in %, crr 0.004, cw 0.51
+  const t = DEV.trainer; if (!t?.cp) return;
+  if (t.proto === 'ftms'){ const v = Math.round(g*100) & 0xFFFF; cpWrite([0x11, 0,0, v & 0xFF, (v>>8) & 0xFF, 40, 51]); }
+  else { const v = Math.round((g + 200) * 100); cpWrite(fecPacket([0x33,0xFF,0xFF,0xFF,0xFF, v & 0xFF, (v>>8) & 0xFF, 0x50])); } // FE-C page 51
+}
+function sendSimMode(){ // vlak, geen ERG
+  const t = DEV.trainer; if (!t?.cp) return;
+  if (t.proto === 'ftms') cpWrite([0x11, 0,0, 0,0, 40, 51]); // wind 0, helling 0%, crr 0.004, cw 0.51
+  else cpWrite(fecPacket([0x33,0xFF,0xFF,0xFF,0xFF, 0x20,0x4E, 0x50])); // helling 0%, crr 0.004
+}
+function parseIndoorBike(v){
+  const flags = v.getUint16(0, true); let o = 2;
+  const d = S.trainer;
+  if (!(flags & 0x0001)){ d.speed = v.getUint16(o, true)/100; o += 2; }
+  if (flags & 0x0002) o += 2;
+  if (flags & 0x0004){ d.cad = v.getUint16(o, true)/2; o += 2; }
+  if (flags & 0x0008) o += 2;
+  if (flags & 0x0010) o += 3;
+  if (flags & 0x0020){ d.res = v.getInt16(o, true); o += 2; }
+  if (flags & 0x0040){ d.power = v.getInt16(o, true); o += 2; }
+  if (flags & 0x0080) o += 2;
+  if (flags & 0x0100) o += 5;
+  if (flags & 0x0200){ d.hr = v.getUint8(o); o += 1; }
+  d.last = performance.now();
+  if (powerSource() === 'trainer') pushPower(d.power);
+}
+function parseFEC(v){ // FE-C page 0x19 (trainer data) en 0x10 (algemeen)
+  if (v.byteLength < 13 || v.getUint8(0) !== 0xA4) return;
+  const page = v.getUint8(4), d = S.trainer;
+  if (page === 0x19){ d.cad = v.getUint8(6); d.power = v.getUint8(9) | ((v.getUint8(10) & 0x0F) << 8); d.last = performance.now(); if (powerSource()==='trainer') pushPower(d.power); }
+  if (page === 0x10){ d.speed = (v.getUint8(8) | (v.getUint8(9)<<8)) * 0.0036; }
+}
+
+/* ---------- Vermogenspedalen (Cycling Power Service) ---------- */
+async function connectPedals(){
+  const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [UUID.CPS] }], optionalServices: [UUID.CPS] });
+  DEV.pedals = { device };
+  const setup = async server => {
+    const svc = await server.getPrimaryService(UUID.CPS);
+    const ch = await svc.getCharacteristic(UUID.CP_MEAS);
+    ch.addEventListener('characteristicvaluechanged', e => parseCyclingPower(e.target.value));
+    await ch.startNotifications();
+    S.pedals.crank = null;
+  };
+  watchDisconnect(device, 'pedals', 'btnPedals', setup);
+  await connectGatt(device, 'pedals', 'btnPedals', setup);
+}
+function parseCyclingPower(v){
+  const flags = v.getUint16(0, true); let o = 4;
+  const d = S.pedals, now = performance.now();
+  d.power = v.getInt16(2, true);
+  if (flags & 0x01){ const b = v.getUint8(o)/2; d.bal = (flags & 0x02) ? b : null; d.balRaw = b; o += 1; }
+  if (flags & 0x04) o += 2;
+  if (flags & 0x10) o += 6;
+  if (flags & 0x20){
+    const revs = v.getUint16(o, true), time = v.getUint16(o+2, true); o += 4;
+    const c = d.crank;
+    if (c){
+      const dr = (revs - c.revs + 65536) % 65536, dt = ((time - c.time + 65536) % 65536) / 1024;
+      if (dr > 0 && dt > 0){ const cad = dr / dt * 60; if (cad < 250) d.cad = Math.round(cad); c.changed = now; }
+      else if (now - c.changed > 2500) d.cad = 0;
+      c.revs = revs; c.time = time;
+    } else d.crank = { revs, time, changed: now };
+  }
+  d.last = now;
+  if (powerSource() === 'pedals') pushPower(d.power);
+}
+
+/* ---------- Hartslag ---------- */
+async function connectHr(){
+  const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [UUID.HRS] }] });
+  DEV.hrm = { device };
+  const setup = async server => {
+    const ch = await (await server.getPrimaryService(UUID.HRS)).getCharacteristic(UUID.HR_MEAS);
+    ch.addEventListener('characteristicvaluechanged', e => { const v = e.target.value, f = v.getUint8(0);
+      S.hrm.hr = (f & 1) ? v.getUint16(1, true) : v.getUint8(1); S.hrm.last = performance.now(); });
+    await ch.startNotifications();
+  };
+  watchDisconnect(device, 'hrm', 'btnHr', setup);
+  await connectGatt(device, 'hrm', 'btnHr', setup);
+}
+
+/* ---------- Demo (simulatie zonder apparaten) ---------- */
+let demoTimer = null;
+function toggleDemo(){
+  if (demoTimer){ clearInterval(demoTimer); demoTimer = null; setDevBtn('btnDemo','off'); toast('Demo uit'); return; }
+  setDevBtn('btnDemo','on'); toast('Demo: gesimuleerde trainer + pedalen');
+  let p = 100, hr = 95;
+  demoTimer = setInterval(() => {
+    const now = performance.now();
+    const pedaling = S.running || !S.workout;
+    const cmd = S.ergCmd != null ? S.ergCmd : S.freeMode === 'grade' ? Math.max(40, 110 + S.grade * 25) : 80 + S.manualRes * 3;
+    p += (cmd - p) * 0.25 + (Math.random()-0.5) * 14;
+    const trainerP = pedaling ? Math.max(0, Math.round(p)) : 0;
+    const pedalP = pedaling ? Math.round(trainerP * 1.04 + (Math.random()-0.5)*6) : 0; // pedalen meten ~4% meer
+    hr += ((60 + trainerP * 0.45) - hr) * 0.02;
+    Object.assign(S.trainer, { power: trainerP, cad: pedaling ? 88 + Math.round(Math.random()*4) : 0, speed: pedaling ? 25 + trainerP/25 : 0, res: Math.round(trainerP / 4), resRange: { min: 0, max: 1000 }, last: now });
+    Object.assign(S.pedals, { power: pedalP, cad: S.trainer.cad, bal: 49 + Math.round(Math.random()*3), last: now });
+    Object.assign(S.hrm, { hr: Math.round(hr), last: now });
+    pushPower(powerSource() === 'pedals' ? pedalP : trainerP);
+  }, 1000);
+}
+
+/* ===================== Live data ===================== */
+const fresh = d => d.last && performance.now() - d.last < 5000;
+function powerSource(){
+  const sel = $('src').value;
+  if (sel === 'pedals') return 'pedals';
+  if (sel === 'trainer') return 'trainer';
+  return fresh(S.pedals) || DEV.pedals ? 'pedals' : 'trainer';
+}
+function pushPower(w){ if (w == null) return; S.powerBuf.push([performance.now(), w]); }
+function power3s(){
+  const now = performance.now(); S.powerBuf = S.powerBuf.filter(x => now - x[0] < 3000);
+  const src = powerSource() === 'pedals' ? S.pedals : S.trainer;
+  if (!fresh(src)) return null;
+  if (!S.powerBuf.length) return 0;
+  return Math.round(S.powerBuf.reduce((a,x) => a + x[1], 0) / S.powerBuf.length);
+}
+function currentCad(){ if (fresh(S.pedals) && S.pedals.cad != null) return S.pedals.cad; if (fresh(S.trainer)) return S.trainer.cad; return null; }
+function currentHr(){ if (fresh(S.hrm)) return S.hrm.hr; if (fresh(S.trainer) && S.trainer.hr) return S.trainer.hr; return null; }
+
+/* ===================== Audio ===================== */
+let actx = null;
+function beep(freq=880, ms=150, vol=0.15){
+  if (!$('sound').checked) return;
+  try { actx = actx || new AudioContext(); const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = freq; g.gain.value = vol; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + ms/1000); } catch(e){}
+}
+
+/* ===================== Rit-logica ===================== */
+let wakeLock = null;
+async function startPause(){
+  if (!S.workout) return toast('Laad eerst een workout');
+  if (S.finished){ stopRide(true); }
+  S.running = !S.running;
+  if (S.running){
+    if (!S.startedAt) S.startedAt = new Date();
+    S.lastTick = performance.now();
+    try { actx = actx || new AudioContext(); actx.resume(); } catch(e){}
+    try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(e){}
+    if (DEV.trainer?.proto === 'ftms') cpWrite([0x07]);
+  }
+  render(true);
+}
+function stopRide(silent){
+  S.running = false; S.autoPaused = false; S.finished = false; S.t = 0; S.segIdx = -1;
+  if (!silent && S.rec.length > 30 && !confirm('Rit stoppen en resetten? Exporteer eerst je rit als je die wil bewaren.')) return;
+  S.rec = []; S.startedAt = null; S.lastRecSec = -1; S.matchOffset = 0; S.dist = 0;
+  try { wakeLock?.release(); } catch(e){} wakeLock = null;
+  render(true);
+}
+function jump(dir){
+  const w = S.workout; if (!w) return;
+  let i = clamp(segAt(S.t), 0, w.segs.length-1);
+  if (dir > 0) S.t = i + 1 < w.segs.length ? w.segs[i+1].start : w.total;
+  else S.t = (S.t - w.segs[i].start > 5 || i === 0) ? w.segs[i].start : w.segs[i-1].start;
+  render(true);
+}
+
+function tick(){
+  const now = performance.now(), dt = Math.min(1, (now - S.lastTick)/1000); S.lastTick = now;
+  const w = S.workout;
+  const p3 = power3s(), cad = currentCad();
+
+  // auto-pauze: geen trappen gedurende 3 s
+  const pedaling = (cad ?? 0) > 0 || (p3 ?? 0) > 10;
+  const anyDevice = fresh(S.trainer) || fresh(S.pedals);
+  if (pedaling || !anyDevice) S.idleSince = null; else if (S.idleSince == null) S.idleSince = now;
+  const wasAuto = S.autoPaused;
+  S.autoPaused = S.running && $('autoPause').checked && anyDevice && S.idleSince != null && now - S.idleSince > 3000;
+  if (wasAuto !== S.autoPaused) toast(S.autoPaused ? 'Auto-pauze' : 'Verder!', 1200);
+
+  if (S.running && !S.autoPaused && w){
+    const prevT = S.t; S.t += dt;
+    const sp = fresh(S.trainer) ? (S.trainer.speed || 0) : 0; S.dist += sp / 3.6 * dt;
+    const i = segAt(S.t);
+    // aftellen laatste 3 seconden
+    if (i < w.segs.length){ const end = w.segs[i].start + w.segs[i].dur;
+      for (const k of [3,2,1]) if (prevT < end - k && S.t >= end - k) beep(660, 120); }
+    if (S.t >= w.total){ S.t = w.total; S.running = false; S.finished = true; beep(990, 400); toast('🎉 Workout voltooid!', 5000); }
+    // opnemen (1 Hz)
+    const sec = Math.floor(S.t);
+    if (sec !== S.lastRecSec){ S.lastRecSec = sec;
+      S.rec.push({ t: sec, time: Date.now(), power: p3 ?? 0, inst: (powerSource()==='pedals' ? S.pedals.power : S.trainer.power) ?? 0,
+        cad: cad ?? 0, hr: currentHr(), target: S.ergCmd != null ? targetNow() : null, dist: S.dist, speed: sp }); }
+  }
+
+  // segmentwissel
+  const idx = w ? segAt(S.t) : -1;
+  if (idx !== S.segIdx){
+    if (S.segIdx !== -1 && idx < (w?.segs.length ?? 0) && S.running){ beep(990, 250, 0.2); toast(segDesc(w.segs[idx]), 3000); }
+    S.segIdx = idx;
+  }
+  controlTrainer(p3);
+  musicTick(dt, p3);
+  render(false);
+}
+
+function targetAtTime(t){
+  const w = S.workout; if (!w) return null;
+  const i = segAt(t); if (i < 0 || i >= w.segs.length) return null;
+  const s = w.segs[i]; return segWatts(s, (t - s.start) / s.dur);
+}
+function targetNow(){ return targetAtTime(S.t); }
+
+/* ===================== Muziek (KI/KI live via YouTube) ===================== */
+const DEFAULT_SETS = [
+  { id: 'm5qSdEAXNfw', t: 'Boiler Room Festival Amsterdam (SPIELRAUM)' },
+  { id: 'obByzP5X3mc', t: 'Boiler Room x AVA Festival 2024' },
+  { id: 'I1mhJjxtJx4', t: 'VTSS b2b KI/KI — Glitch Festival 2024' },
+];
+const M = { sets: DEFAULT_SETS.slice(), A: 'm5qSdEAXNfw', B: 'I1mhJjxtJx4', players: {}, ready: {}, vol: { A: 0, B: 0 }, sent: { A: -1, B: -1 }, state: { A: false, B: false }, hard: false };
+try { const m = JSON.parse(localStorage.getItem('music') || 'null'); if (m){ if (m.sets?.length) M.sets = m.sets; if (m.A) M.A = m.A; if (m.B) M.B = m.B;
+  if (m.vol != null) $('musicVol').value = m.vol; if (m.mode) $('musicMode').value = m.mode; if (m.on === false) $('musicOn').checked = false; } } catch(e){}
+function saveMusic(){ try { localStorage.setItem('music', JSON.stringify({ sets: M.sets, A: M.A, B: M.B, vol: +$('musicVol').value, mode: $('musicMode').value, on: $('musicOn').checked })); } catch(e){} }
+function fillSetSelects(){
+  for (const k of ['A','B']){ const sel = $('sel'+k); sel.innerHTML = '';
+    for (const s of M.sets){ const o = document.createElement('option'); o.value = s.id; o.textContent = s.t; sel.appendChild(o); }
+    sel.value = M[k]; }
+}
+fillSetSelects();
+window.onYouTubeIframeAPIReady = () => {
+  for (const k of ['A','B']){
+    M.players[k] = new YT.Player('yt'+k, { videoId: M[k], width: '100%', height: '100%',
+      playerVars: { rel: 0, playsinline: 1, modestbranding: 1 },
+      events: { onReady: () => { M.ready[k] = true; M.players[k].setVolume(0); M.sent[k] = 0; },
+                onError: e => { log(`YouTube-fout ${e.data} bij ${k === 'A' ? 'rustige' : 'harde'} set (video niet insluitbaar of verwijderd)`); } } });
+  }
+};
+(() => { const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s); })();
+
+function musicTick(dt, p3){
+  const on = $('musicOn').checked, single = $('musicMode').value === 'single';
+  const want = on && S.running && !S.autoPaused;
+  // doelintensiteit 3 s vooruit, zodat de muziek al wisselt vlak voor een zwaar interval
+  let tgt = targetAtTime(Math.min(S.t + 3, S.workout?.total ?? 0));
+  if (tgt == null) tgt = p3 ?? S.ftp * 0.6;
+  const f = tgt / S.ftp;
+  M.hard = single ? false : f >= 0.9;                       // Z4 drempel en hoger -> harde set
+  const loud = clamp(0.7 + (f - 0.55) * 0.6, 0.7, 1);       // volume stijgt mee met intensiteit
+  const master = +$('musicVol').value / 100;
+  const target = { A: M.hard ? 0 : loud, B: M.hard ? loud : 0 };
+  for (const k of ['A','B']){
+    const p = M.players[k]; if (!M.ready[k]) continue;
+    const play = want && !(single && k === 'B');
+    if (play !== M.state[k]){ play ? p.playVideo() : p.pauseVideo(); M.state[k] = play; }
+    M.vol[k] += (target[k] - M.vol[k]) * Math.min(1, dt / 1.2);   // crossfade van ~3 s
+    const v = Math.round(M.vol[k] * master * 100);
+    if (Math.abs(v - M.sent[k]) >= 1){ p.setVolume(v); M.sent[k] = v; }
+    $('m'+k).style.width = (M.vol[k] * 100) + '%';
+  }
+  $('deckB').style.display = single ? 'none' : '';
+  const cur = M.sets.find(s => s.id === (M.hard ? M.B : M.A));
+  $('musicNow').textContent = !on ? 'uit' : !want ? '⏸ start de workout om te spelen' : `▶ ${single ? '' : (M.hard ? 'Hard · ' : 'Rustig · ')}${cur?.t ?? ''}`;
+  $('deckA').classList.toggle('live', want && !M.hard); $('deckB').classList.toggle('live', want && M.hard);
+}
+function ytId(url){ const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/) || String(url).match(/^([\w-]{11})$/); return m ? m[1] : null; }
+
+function controlTrainer(p3){
+  const target = targetNow();
+  const now = performance.now();
+  const wantErg = S.erg && target != null && !S.finished;
+  if (!wantErg){
+    S.ergCmd = null; S.lastCmdSent = null;
+    const key = S.freeMode === 'grade' ? 'g' + S.grade : 'r' + S.manualRes;
+    if (DEV.trainer?.cp && (key !== S.lastResSent || now - S.lastCmdTime > 10000) && now - S.lastCmdTime > 900){
+      if (S.freeMode === 'grade') sendGrade(S.grade); else sendResistance(S.manualRes);
+      S.lastResSent = key; S.lastCmdTime = now;
+    }
+    return;
+  }
+  S.lastResSent = null;
+  // Power match: stuur de trainer bij zodat de PEDALEN het doel meten
+  if (S.match && fresh(S.pedals) && S.running && !S.autoPaused && S.segIdx >= 0){
+    const s = S.workout.segs[S.segIdx];
+    const inSeg = S.t - s.start;
+    const err = p3 != null ? target - p3 : 0;
+    // alleen bijsturen als het vermogen gestabiliseerd is (geen overgangen meetellen)
+    if (inSeg > 10 && p3 != null && (S.pedals.cad ?? 0) > 30 && Math.abs(err) < target * 0.15 && now - (S.lastMatch||0) > 2000){
+      S.lastMatch = now;
+      S.matchOffset = clamp(S.matchOffset + 0.3 * err, -60, 60);
+    }
+  }
+  S.ergCmd = Math.round(target + (S.match ? S.matchOffset : 0));
+  if (DEV.trainer?.cp && (S.ergCmd !== S.lastCmdSent || now - S.lastCmdTime > 10000) && now - S.lastCmdTime > 900){
+    sendTargetPower(S.ergCmd); S.lastCmdSent = S.ergCmd; S.lastCmdTime = now;
+  }
+}
+
+/* ===================== Weergave ===================== */
+function render(force){
+  const w = S.workout, p3 = power3s(), cad = currentCad(), hr = currentHr();
+  const target = targetNow();
+  const i = w ? segAt(S.t) : -1, seg = w && i >= 0 && i < w.segs.length ? w.segs[i] : null;
+
+  $('vTarget').textContent = target ?? (seg?.free ? 'vrij' : '--');
+  $('vTargetSub').textContent = target != null ? `${Math.round(target/S.ftp*100)}% FTP · ${zoneOf(target/S.ftp)[2]}` : (seg?.free ? 'Vrij rijden — ERG uit' : '');
+  $('tTarget').style.borderColor = target != null ? css(zoneOf(target/S.ftp)[1]) : '';
+  $('vPower').textContent = p3 ?? '--';
+  const tp = $('tPower'); tp.classList.remove('ok','low','high');
+  if (p3 != null && target){ const r = p3/target; tp.classList.add(r < 0.95 ? 'low' : r > 1.05 ? 'high' : 'ok'); }
+  $('vPowerSub').textContent = p3 != null ? `bron: ${powerSource() === 'pedals' ? 'pedalen' : 'trainer'}${target ? ` · ${p3 - target >= 0 ? '+' : ''}${p3 - target} W` : ''}` : 'geen vermogensmeter';
+  $('vCad').textContent = cad ?? '--';
+  $('vCadSub').textContent = seg?.cad ? `doel ${seg.cad} rpm` : '';
+  $('vHr').textContent = hr ?? '--';
+  $('vHrSub').textContent = '';
+  const bal = fresh(S.pedals) ? S.pedals.bal : null;
+  $('vBal').textContent = bal != null ? `${Math.round(bal)} / ${Math.round(100-bal)}` : '--';
+  const spd = fresh(S.trainer) ? S.trainer.speed : null;
+  $('vSpeed').textContent = spd != null ? spd.toFixed(1) : '--';
+  // weerstand: als het bereik bekend is als % tonen, anders de ruwe waarde
+  const res = fresh(S.trainer) ? S.trainer.res : null, rr = S.trainer.resRange;
+  if (res == null){ $('vRes').textContent = '--'; $('vResUnit').textContent = ''; $('vResSub').textContent = DEV.trainer?.proto === 'fec' ? 'niet gemeld door trainer' : 'trainer'; }
+  else {
+    let pct = null;
+    if (rr && rr.max > rr.min){
+      // sommige trainers melden in 0.1-eenheden, andere in hele eenheden
+      const scale = res <= rr.max / 10 && rr.max >= 100 ? 10 : 1;
+      pct = clamp((res * scale - rr.min) / (rr.max - rr.min) * 100, 0, 100);
+    }
+    $('vRes').textContent = pct != null ? Math.round(pct) : res;
+    $('vResUnit').textContent = pct != null ? '%' : '';
+    $('vResSub').textContent = (S.ergCmd != null ? 'automatisch (ERG)' : `handmatig (${S.manualRes}%)`) + (pct != null ? ` · ruw ${res}` : '');
+  }
+  $('vDist').textContent =S.dist > 0 ? `${(S.dist/1000).toFixed(2)} km` : '';
+
+  if (w){
+    $('vElapsed').textContent = fmt(S.t);
+    $('vRemain').textContent = `nog ${fmt(w.total - S.t)} van ${fmt(w.total)}`;
+    if (seg){
+      const left = seg.start + seg.dur - S.t;
+      $('vSegLeft').textContent = fmt(Math.ceil(left));
+      $('vSegLeft').style.color = left <= 5 && S.running ? css('--warn') : '';
+      $('vSegSub').textContent = `stap ${i+1} van ${w.segs.length}`;
+      $('segNow').textContent = (S.autoPaused ? '⏸ Auto-pauze · ' : !S.running && !S.finished ? '⏸ ' : '') + segDesc(seg);
+      $('segNext').textContent = w.segs[i+1] ? `Volgende: ${segDesc(w.segs[i+1])}` : 'Laatste stap';
+      $('segProg').style.width = ((S.t - seg.start)/seg.dur*100) + '%';
+      $('segProg').style.background = target != null ? css(zoneOf(target/S.ftp)[1]) : css('--z1');
+    } else if (S.finished){
+      $('vSegLeft').textContent = '0:00'; $('segNow').textContent = '🎉 Workout voltooid — exporteer je rit'; $('segNext').textContent = ''; $('segProg').style.width = '100%';
+    }
+  }
+  $('btnStart').textContent = S.running ? '⏸ Pauze' : (S.t > 0 && !S.finished ? '▶ Verder' : '▶ Start');
+  $('vInt').textContent = Math.round(S.intensity*100) + '%';
+  $('btnErg').textContent = S.erg ? 'ERG aan' : 'ERG uit'; $('btnErg').classList.toggle('on', S.erg);
+  $('btnMatch').textContent = S.match ? `Power match aan (${S.matchOffset >= 0 ? '+' : ''}${Math.round(S.matchOffset)} W)` : 'Power match uit';
+  $('btnMatch').classList.toggle('on', S.match);
+
+  // stats
+  const r = S.rec;
+  if (r.length){
+    const avg = r.reduce((a,x) => a + x.inst, 0)/r.length;
+    let np = null;
+    if (r.length >= 30){ let s4 = 0, n = 0; for (let k=29;k<r.length;k++){ let s=0; for (let j=k-29;j<=k;j++) s += r[j].inst; s4 += Math.pow(s/30,4); n++; } np = Math.pow(s4/n, 0.25); }
+    $('sAvg').textContent = Math.round(avg) + ' W';
+    $('sNp').textContent = np ? Math.round(np) + ' W' : '–';
+    const IF = np ? np / S.ftp : null;
+    $('sIf').textContent = IF ? IF.toFixed(2) : '–';
+    $('sTss').textContent = IF ? Math.round(r.length * np * IF / (S.ftp * 3600) * 100) : '–';
+    $('sKj').textContent = Math.round(r.reduce((a,x) => a + x.inst, 0)/1000) + ' kJ';
+    const cads = r.filter(x => x.cad > 0); $('sCad').textContent = cads.length ? Math.round(cads.reduce((a,x)=>a+x.cad,0)/cads.length) + ' rpm' : '–';
+    const hrs = r.filter(x => x.hr); $('sHr').textContent = hrs.length ? Math.round(hrs.reduce((a,x)=>a+x.hr,0)/hrs.length) + ' bpm' : '–';
+  } else ['sAvg','sNp','sIf','sTss','sKj','sCad','sHr'].forEach(id => $(id).textContent = '–');
+  $('sCmd').textContent = S.ergCmd != null ? S.ergCmd + ' W (ERG)' : (DEV.trainer || demoTimer ? `weerstand ${S.manualRes}%${S.resFallback ? ` (≈${(S.manualRes/10).toFixed(1)}% helling)` : ''}` : '–');
+  const gradeMode = S.freeMode === 'grade';
+  $('vManRes').textContent = gradeMode ? `${S.grade > 0 ? '+' : ''}${S.grade.toFixed(1)}%` : S.manualRes + '%';
+  if (S.ergCmd == null && gradeMode){
+    if (DEV.trainer || demoTimer) $('sCmd').textContent = `helling ${S.grade.toFixed(1)}%`;
+    $('lRes').textContent = 'Helling';
+    $('vRes').textContent = (S.grade > 0 ? '+' : '') + S.grade.toFixed(1); $('vResUnit').textContent = '%';
+    $('vResSub').textContent = 'handmatig' + (res != null ? ` · weerstand ruw ${res}` : '');
+  } else $('lRes').textContent = 'Weerstand';
+  $('resCtl').style.opacity = S.ergCmd != null ? 0.45 : 1;
+  $('sTrainerP').textContent = fresh(S.trainer) && S.trainer.power != null ? S.trainer.power + ' W' : '–';
+  $('sPedalP').textContent = fresh(S.pedals) && S.pedals.power != null ? S.pedals.power + ' W' : '–';
+
+  drawChart();
+}
+
+/* ---------- Grafiek ---------- */
+function drawChart(){
+  const cv = $('chart'), w = S.workout; const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  if (!w) return;
+  const padL = 40, padB = 20, padT = 8, cw = W - padL - 6, ch = H - padB - padT;
+  let maxW = S.ftp * 1.1;
+  for (const s of w.segs) if (!s.free) maxW = Math.max(maxW, segWatts(s,0), segWatts(s,1));
+  for (const x of S.rec) maxW = Math.max(maxW, x.power);
+  maxW *= 1.1;
+  const X = t => padL + t / w.total * cw, Y = p => padT + ch - p / maxW * ch;
+
+  // raster
+  g.font = '11px -apple-system,sans-serif'; g.fillStyle = css('--muted'); g.strokeStyle = css('--line'); g.lineWidth = 1;
+  const step = maxW > 600 ? 200 : 100;
+  for (let p = step; p < maxW; p += step){ g.beginPath(); g.moveTo(padL, Y(p)); g.lineTo(W-6, Y(p)); g.stroke(); g.fillText(p, 4, Y(p)+4); }
+  const tStep = w.total > 5400 ? 900 : w.total > 2400 ? 600 : 300;
+  for (let t = tStep; t < w.total; t += tStep) g.fillText(fmt(t), X(t)-12, H-5);
+
+  // segmenten
+  for (const s of w.segs){
+    const x0 = X(s.start), x1 = X(s.start + s.dur);
+    if (s.free){
+      g.fillStyle = css('--z1') + '55'; g.fillRect(x0, Y(S.ftp*0.5), x1-x0, Y(0)-Y(S.ftp*0.5));
+      continue;
+    }
+    const a = segWatts(s,0), b = segWatts(s,1);
+    const N = Math.max(1, Math.ceil((x1-x0)/4));
+    for (let k=0;k<N;k++){ // kleur per stukje (zones bij ramps)
+      const f0 = k/N, f1 = (k+1)/N, p0 = a + (b-a)*f0, p1 = a + (b-a)*f1;
+      const past = s.start + s.dur*f1 <= S.t;
+      g.fillStyle = css(zoneOf(((p0+p1)/2)/S.ftp)[1]) + (past ? '66' : 'cc');
+      g.beginPath(); g.moveTo(x0 + (x1-x0)*f0, Y(0)); g.lineTo(x0 + (x1-x0)*f0, Y(p0)); g.lineTo(x0 + (x1-x0)*f1, Y(p1)); g.lineTo(x0 + (x1-x0)*f1, Y(0)); g.closePath(); g.fill();
+    }
+  }
+  // FTP-lijn
+  g.setLineDash([4,4]); g.strokeStyle = '#ffffff55'; g.beginPath(); g.moveTo(padL, Y(S.ftp)); g.lineTo(W-6, Y(S.ftp)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#ffffff88'; g.fillText('FTP', W-30, Y(S.ftp)-4);
+
+  // gereden vermogen
+  if (S.rec.length > 1){
+    g.strokeStyle = '#ffffff'; g.lineWidth = 1.6; g.beginPath();
+    S.rec.forEach((x,k) => k ? g.lineTo(X(x.t), Y(x.power)) : g.moveTo(X(x.t), Y(x.power))); g.stroke();
+    const hrs = S.rec.filter(x => x.hr);
+    if (hrs.length > 1){ g.strokeStyle = '#e5484daa'; g.lineWidth = 1.2; g.beginPath();
+      const Yh = h => padT + ch - (h - 40) / 170 * ch;
+      hrs.forEach((x,k) => k ? g.lineTo(X(x.t), Yh(x.hr)) : g.moveTo(X(x.t), Yh(x.hr))); g.stroke(); }
+  }
+  // cursor
+  g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(S.t), padT); g.lineTo(X(S.t), Y(0)); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(X(S.t), padT+4, 4, 0, 7); g.fill();
+}
+
+/* ---------- Export TCX ---------- */
+function exportTCX(){
+  if (!S.rec.length) return toast('Nog geen ritdata om te exporteren');
+  const iso = ms => new Date(ms).toISOString();
+  const r = S.rec, start = r[0].time, secs = r.length;
+  const avgHr = (() => { const h = r.filter(x => x.hr); return h.length ? Math.round(h.reduce((a,x)=>a+x.hr,0)/h.length) : null; })();
+  const maxHr = Math.max(0, ...r.map(x => x.hr || 0));
+  const kcal = Math.round(r.reduce((a,x)=>a+x.inst,0)/1000 * 1.0);
+  const pts = r.map(x => `<Trackpoint><Time>${iso(x.time)}</Time><DistanceMeters>${x.dist.toFixed(1)}</DistanceMeters>${x.hr ? `<HeartRateBpm><Value>${x.hr}</Value></HeartRateBpm>` : ''}<Cadence>${Math.round(x.cad)}</Cadence><Extensions><ns3:TPX><ns3:Speed>${(x.speed/3.6).toFixed(2)}</ns3:Speed><ns3:Watts>${Math.round(x.inst)}</ns3:Watts></ns3:TPX></Extensions></Trackpoint>`).join('\n');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+<Activities><Activity Sport="Biking"><Id>${iso(start)}</Id>
+<Lap StartTime="${iso(start)}"><TotalTimeSeconds>${secs}</TotalTimeSeconds><DistanceMeters>${r[r.length-1].dist.toFixed(1)}</DistanceMeters><Calories>${kcal}</Calories>${avgHr ? `<AverageHeartRateBpm><Value>${avgHr}</Value></AverageHeartRateBpm><MaximumHeartRateBpm><Value>${maxHr}</Value></MaximumHeartRateBpm>` : ''}<Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod>
+<Track>
+${pts}
+</Track></Lap>
+<Notes>${(S.workout?.name || 'Indoor workout').replace(/[<&>]/g,'')}</Notes>
+</Activity></Activities></TrainingCenterDatabase>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([xml], {type:'application/vnd.garmin.tcx+xml'}));
+  const d = new Date(start);
+  a.download = `indoor-${d.toISOString().slice(0,10)}-${(S.workout?.name||'rit').replace(/[^\w-]+/g,'_').slice(0,40)}.tcx`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('Rit geëxporteerd — upload naar Strava of Garmin Connect');
+}
+
+/* ===================== Events ===================== */
+const btErr = e => { if (e.name !== 'NotFoundError') { log('Bluetooth-fout: ' + e.message); toast('Verbinden mislukt: ' + e.message, 4000); } };
+$('btnTrainer').onclick = () => connectTrainer().catch(e => { setDevBtn('btnTrainer','off'); btErr(e); });
+$('btnPedals').onclick  = () => connectPedals().catch(e => { setDevBtn('btnPedals','off'); btErr(e); });
+$('btnHr').onclick      = () => connectHr().catch(e => { setDevBtn('btnHr','off'); btErr(e); });
+$('btnDemo').onclick    = toggleDemo;
+$('btnStart').onclick   = startPause;
+$('btnStop').onclick    = () => stopRide(false);
+$('btnPrev').onclick    = () => jump(-1);
+$('btnNext').onclick    = () => jump(1);
+$('btnIntDown').onclick = () => { S.intensity = clamp(Math.round((S.intensity - 0.05)*100)/100, 0.5, 1.5); updateMeta(); render(true); };
+$('btnIntUp').onclick   = () => { S.intensity = clamp(Math.round((S.intensity + 0.05)*100)/100, 0.5, 1.5); updateMeta(); render(true); };
+const setManualRes = dir => { // dir = +1 / -1
+  let txt;
+  if (S.freeMode === 'grade'){ S.grade = clamp(Math.round((S.grade + dir*0.5)*10)/10, 0, 10); txt = `Helling ${S.grade.toFixed(1)}%`; }
+  else { S.manualRes = clamp(S.manualRes + dir*5, 0, 100); txt = `Weerstand ${S.manualRes}%`; }
+  if (S.ergCmd != null) toast(`${txt} — wordt actief bij ERG uit of vrij rijden`, 2000);
+  render(true);
+};
+$('btnResDown').onclick = () => setManualRes(-1);
+$('btnResUp').onclick   = () => setManualRes(1);
+$('freeMode').onchange  = e => { S.freeMode = e.target.value; S.lastResSent = null; render(true); };
+// muziek
+for (const k of ['A','B']) $('sel'+k).onchange = e => {
+  M[k] = e.target.value; saveMusic();
+  const p = M.players[k]; if (!M.ready[k]) return;
+  M.state[k] ? p.loadVideoById(M[k]) : p.cueVideoById(M[k]);
+};
+$('musicVol').oninput  = saveMusic;
+$('musicMode').onchange = saveMusic;
+$('musicOn').onchange  = saveMusic;
+$('btnAddSet').onclick = async () => {
+  const id = ytId($('musicUrl').value.trim());
+  if (!id) return toast('Geen geldige YouTube-link');
+  if (M.sets.some(s => s.id === id)) return toast('Deze set staat al in de lijst');
+  let t = id;
+  try { const r = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + id)}&format=json`);
+        if (r.ok) t = (await r.json()).title; else if (r.status === 401 || r.status === 403) return toast('Deze video mag niet ingesloten worden', 4000); } catch(e){}
+  M.sets.push({ id, t }); fillSetSelects(); saveMusic(); $('musicUrl').value = '';
+  toast(`Toegevoegd: ${t}`);
+};
+$('btnErg').onclick     = () => { S.erg = !S.erg; S.lastCmdSent = null; render(true); };
+$('btnMatch').onclick   = () => { S.match = !S.match; S.matchOffset = 0; if (S.match && !DEV.pedals && !demoTimer) toast('Verbind je vermogenspedalen voor power match'); render(true); };
+$('btnTcx').onclick     = exportTCX;
+$('btnFull').onclick    = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+$('ftp').onchange       = e => { S.ftp = clamp(+e.target.value || 250, 50, 600); try { localStorage.setItem('ftp', S.ftp); } catch(x){} updateMeta(); render(true); };
+$('src').onchange       = () => { S.powerBuf = []; };
+$('btnLoad').onclick    = () => $('file').click();
+$('file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const ext = f.name.split('.').pop().toLowerCase();
+    let w;
+    if (ext === 'fit') w = parseFIT(await f.arrayBuffer());
+    else { const txt = await f.text();
+      if (ext === 'zwo' || /<workout_file/i.test(txt)) w = parseZWO(txt);
+      else if (/\[COURSE DATA\]/i.test(txt)) w = parseERG(txt);
+      else w = parseText(txt); }
+    if (!w.name || w.name === 'Workout') w.name = f.name.replace(/\.[^.]+$/, '');
+    loadWorkout(w); toast(`Geladen: ${w.name}`);
+  } catch(err){ log('Laden mislukt: ' + err.message); toast('Laden mislukt: ' + err.message, 5000); }
+};
+$('btnEdit').onclick = () => { $('txtWorkout').value = S.workout?.src || DEFAULT_TXT; $('dlgEdit').showModal(); };
+$('btnEditCancel').onclick = () => $('dlgEdit').close();
+$('btnEditOk').onclick = () => {
+  try { const w = parseText($('txtWorkout').value); w.src = $('txtWorkout').value; loadWorkout(w); $('dlgEdit').close(); }
+  catch(err){ alert(err.message); }
+};
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || $('dlgEdit').open) return;
+  if (e.code === 'Space'){ e.preventDefault(); startPause(); }
+  if (e.key === 'ArrowRight') jump(1);
+  if (e.key === 'ArrowLeft') jump(-1);
+  if (e.key === 'ArrowUp') $('btnIntUp').click();
+  if (e.key === 'ArrowDown') $('btnIntDown').click();
+  if (e.key === '+' || e.key === '=') setManualRes(1);
+  if (e.key === '-') setManualRes(-1);
+});
+window.addEventListener('beforeunload', e => { if (S.rec.length > 60) { e.preventDefault(); e.returnValue = ''; } });
+document.addEventListener('visibilitychange', async () => { if (S.running && document.visibilityState === 'visible') try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(e){} });
+window.addEventListener('resize', () => drawChart());
+
+/* ===================== Init ===================== */
+if (!navigator.bluetooth){ $('noBt').hidden = false; }
+try {
+  const last = JSON.parse(localStorage.getItem('lastWorkout') || 'null');
+  if (last?.segs?.length) loadWorkout(last); else { const w = parseText(DEFAULT_TXT); w.src = DEFAULT_TXT; loadWorkout(w); }
+} catch(e){ const w = parseText(DEFAULT_TXT); w.src = DEFAULT_TXT; loadWorkout(w); }
+// ?w=workouts/bestand.fit -> workout automatisch laden (gebruikt door start.command)
+(async () => {
+  const p = new URLSearchParams(location.search).get('w'); if (!p) return;
+  try {
+    const r = await fetch(p); if (!r.ok) throw new Error(`niet gevonden (${r.status})`);
+    const name = p.split('/').pop().replace(/\.[^.]+$/, ''), ext = p.split('.').pop().toLowerCase();
+    let w;
+    if (ext === 'fit') w = parseFIT(await r.arrayBuffer());
+    else { const t = await r.text(); w = /<workout_file/i.test(t) ? parseZWO(t) : /\[COURSE DATA\]/i.test(t) ? parseERG(t) : parseText(t); }
+    if (!w.name || w.name === 'Workout') w.name = name;
+    loadWorkout(w); toast(`Geladen: ${w.name}`);
+  } catch(e){ log(`Workout ${p} laden mislukt: ${e.message}`); }
+})();
+setInterval(tick, 250);
+</script>
+</body>
+</html>
