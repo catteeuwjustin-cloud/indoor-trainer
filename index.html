@@ -19,6 +19,7 @@
     }
     box.appendChild(document.createTextNode('\n• ' + msg));
   }
+  window.__showErr = show;
   window.addEventListener('error', function(e){
     if (e && e.target && e.target !== window && e.target.src) return show('Laden mislukt: ' + e.target.src);
     show((e.message || 'Onbekende fout') + (e.lineno ? ' (regel ' + e.lineno + ':' + e.colno + ')' : ''));
@@ -309,6 +310,8 @@
 
 <script>
 "use strict";
+// Alles in een eigen functie: zo botsen onze namen niet met code die een browser (bv. Bluefy) zelf in de pagina zet.
+(() => { try {
 /* ===================== Helpers ===================== */
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -1471,6 +1474,10 @@ try {
 })();
 setInterval(tick, 250);
 window.__appStarted = true;
+} catch (e) {
+  if (window.__showErr) window.__showErr('Fout bij starten: ' + (e && e.message) + (e && e.stack ? '\n' + String(e.stack).split('\n').slice(0, 4).join('\n') : ''));
+  throw e;
+} })();
 </script>
 </body>
 </html>
