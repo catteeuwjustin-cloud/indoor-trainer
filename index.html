@@ -35,6 +35,8 @@
     --ok:#2fbf71; --warn:#f2c230; --bad:#e5484d; --accent:#3b8ef0;
   }
   *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{overflow-x:hidden}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
   button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
   button:hover{border-color:#3d4656}
@@ -46,7 +48,7 @@
   header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
   .brand{font-weight:700;letter-spacing:.3px}
   .brand small{color:var(--muted);font-weight:400;margin-left:8px}
-  .group{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .group{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;max-width:100%}
   .dev .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:7px;vertical-align:middle}
   .dev.connected .dot{background:var(--ok);box-shadow:0 0 6px var(--ok)}
   .dev.connecting .dot{background:var(--warn)}
@@ -54,13 +56,13 @@
   .title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
   .title h1{margin:0;font-size:20px;font-weight:600}
   .title .meta{color:var(--muted);font-size:14px}
-  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+  .tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0;overflow:hidden}
   .tile .lbl{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
-  .tile .val{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px;white-space:nowrap}
+  .tile .val{font-size:clamp(26px,3.4vw,44px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px;white-space:nowrap}
   .tile .val small{font-size:16px;color:var(--muted);font-weight:500;margin-left:4px}
   .tile .sub{color:var(--muted);font-size:14px;margin-top:2px;min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tile.big .val{font-size:72px}
+  .tile.big .val{font-size:clamp(40px,5.6vw,72px)}
   .tile.span2{grid-column:span 2}
   #tPower.ok{border-color:var(--ok)} #tPower.ok .val span{color:var(--ok)}
   #tPower.low{border-color:var(--warn)} #tPower.low .val span{color:var(--warn)}
@@ -128,8 +130,8 @@
   .wcard .del{background:none;border:none;color:var(--muted);padding:0;font-size:12px}
   @media (max-width:640px){.zonebar{grid-template-columns:repeat(3,minmax(0,1fr))}}
   .warnbox{background:#3a2a10;border:1px solid var(--warn);color:#f5dc9a;padding:10px 14px;border-radius:10px;font-size:14px}
-  @media (max-width:1100px){.tiles{grid-template-columns:repeat(4,1fr)} .tile.big .val{font-size:56px} .tile .val{font-size:36px}}
-  @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)} .tile .val{font-size:34px} .tile.big .val{font-size:44px}}
+  @media (max-width:1100px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))} .tile.big .val{font-size:clamp(40px,7vw,56px)} .tile .val{font-size:clamp(26px,4.4vw,36px)}}
+  @media (max-width:640px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .tile .val{font-size:34px} .tile.big .val{font-size:44px}}
 </style>
 </head>
 <body>
@@ -595,12 +597,26 @@ function updateMeta(){
 }
 
 /* ===================== Bluetooth ===================== */
+// Volledige 128-bit UUID-strings: werken in Chrome én in Bluefy (iPad)
+const u16 = n => '0000' + n.toString(16).padStart(4, '0') + '-0000-1000-8000-00805f9b34fb';
 const UUID = {
-  FTMS: 0x1826, INDOOR_BIKE: 0x2ad2, FTMS_CP: 0x2ad9, FTMS_STATUS: 0x2ada, FTMS_FEATURE: 0x2acc,
-  CPS: 0x1818, CP_MEAS: 0x2a63, HRS: 0x180d, HR_MEAS: 0x2a37,
+  FTMS: u16(0x1826), INDOOR_BIKE: u16(0x2ad2), FTMS_CP: u16(0x2ad9), FTMS_STATUS: u16(0x2ada), FTMS_FEATURE: u16(0x2acc), FTMS_RES_RANGE: u16(0x2ad6),
+  CPS: u16(0x1818), CP_MEAS: u16(0x2a63), HRS: u16(0x180d), HR_MEAS: u16(0x2a37),
   FEC: '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e', FEC_TX: '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e', FEC_RX: '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e',
 };
 const DEV = { trainer: null, pedals: null, hrm: null };
+const btMsg = e => e == null ? 'onbekende fout' : (e.message || e.name || String(e));
+const btCancelled = e => /NotFound|cancel|abort|annul/i.test((e && e.name || '') + ' ' + btMsg(e));
+// Apparaat kiezen. Lukt het filteren niet (sommige browsers, bv. Bluefy), dan alle apparaten tonen.
+async function pickDevice(filters, optionalServices){
+  if (!navigator.bluetooth) throw new Error('deze browser ondersteunt geen Bluetooth (gebruik Chrome, Edge of op iPad Bluefy)');
+  try { return await navigator.bluetooth.requestDevice({ filters, optionalServices }); }
+  catch(e){
+    if (btCancelled(e)) throw e;
+    log('Filteren op type mislukt (' + btMsg(e) + ') — alle apparaten worden getoond');
+    return await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices });
+  }
+}
 let cpQueue = Promise.resolve();
 
 function setDevBtn(id, state){ const b = $(id); b.classList.toggle('connected', state==='on'); b.classList.toggle('connecting', state==='wait'); }
@@ -626,10 +642,7 @@ function watchDisconnect(device, kind, btnId, setup){
 
 /* ---------- Trainer (FTMS of Tacx FE-C) ---------- */
 async function connectTrainer(){
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [{ services: [UUID.FTMS] }, { services: [UUID.FEC] }],
-    optionalServices: [UUID.FTMS, UUID.FEC, UUID.CPS, UUID.HRS],
-  });
+  const device = await pickDevice([{ services: [UUID.FTMS] }, { services: [UUID.FEC] }], [UUID.FTMS, UUID.FEC, UUID.CPS, UUID.HRS]);
   DEV.trainer = { device };
   const setup = async server => {
     let ftms = null; try { ftms = await server.getPrimaryService(UUID.FTMS); } catch(e){}
@@ -650,7 +663,7 @@ async function connectTrainer(){
       await cp.startNotifications();
       DEV.trainer.proto = 'ftms'; DEV.trainer.cp = cp;
       try { // ondersteund weerstandsbereik (min/max in 0.1-eenheden)
-        const rv = await (await ftms.getCharacteristic(0x2ad6)).readValue();
+        const rv = await (await ftms.getCharacteristic(UUID.FTMS_RES_RANGE)).readValue();
         S.trainer.resRange = { min: rv.getInt16(0, true), max: rv.getInt16(2, true) };
         log(`Weerstandsbereik trainer: ${S.trainer.resRange.min/10} – ${S.trainer.resRange.max/10}`);
       } catch(e){ S.trainer.resRange = null; }
@@ -729,7 +742,7 @@ function parseFEC(v){ // FE-C page 0x19 (trainer data) en 0x10 (algemeen)
 
 /* ---------- Vermogenspedalen (Cycling Power Service) ---------- */
 async function connectPedals(){
-  const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [UUID.CPS] }], optionalServices: [UUID.CPS] });
+  const device = await pickDevice([{ services: [UUID.CPS] }], [UUID.CPS]);
   DEV.pedals = { device };
   const setup = async server => {
     const svc = await server.getPrimaryService(UUID.CPS);
@@ -764,7 +777,7 @@ function parseCyclingPower(v){
 
 /* ---------- Hartslag ---------- */
 async function connectHr(){
-  const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [UUID.HRS] }] });
+  const device = await pickDevice([{ services: [UUID.HRS] }], [UUID.HRS]);
   DEV.hrm = { device };
   const setup = async server => {
     const ch = await (await server.getPrimaryService(UUID.HRS)).getCharacteristic(UUID.HR_MEAS);
@@ -1251,7 +1264,7 @@ async function uploadToStrava(){
 }
 
 /* ===================== Events ===================== */
-const btErr = e => { if (e.name !== 'NotFoundError') { log('Bluetooth-fout: ' + e.message); toast('Verbinden mislukt: ' + e.message, 4000); } };
+const btErr = e => { if (btCancelled(e)) return; log('Bluetooth-fout: ' + btMsg(e)); toast('Verbinden mislukt: ' + btMsg(e), 6000); };
 $('btnTrainer').onclick = () => connectTrainer().catch(e => { setDevBtn('btnTrainer','off'); btErr(e); });
 $('btnPedals').onclick  = () => connectPedals().catch(e => { setDevBtn('btnPedals','off'); btErr(e); });
 $('btnHr').onclick      = () => connectHr().catch(e => { setDevBtn('btnHr','off'); btErr(e); });
