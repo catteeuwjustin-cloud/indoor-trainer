@@ -56,17 +56,6 @@
   #toast{position:fixed;left:50%;top:80px;transform:translateX(-50%);background:#000c;border:1px solid var(--line);padding:16px 26px;border-radius:14px;font-size:26px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9;text-align:center}
   #toast.show{opacity:1}
   #log{color:var(--muted);font-size:12px;max-height:60px;overflow:auto;white-space:pre-wrap}
-  .editor{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:10px}
-  .ehead{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-  .edstatus{font-size:14px;color:var(--muted);flex:1;min-width:0}
-  .edstatus.ok{color:var(--ok)} .edstatus.err{color:var(--bad)} .edstatus.wait{color:var(--warn)}
-  .ebody{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}
-  .ebody textarea{width:100%;min-height:200px;resize:vertical;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:14px/1.5 ui-monospace,Menlo,monospace;padding:10px}
-  .ebody textarea.err{border-color:var(--bad)}
-  .ehelp{color:var(--muted);font-size:13px}
-  .ehelp ul{margin:6px 0;padding-left:18px} .ehelp li{margin:2px 0}
-  .ehelp code{color:var(--text)}
-  @media (max-width:640px){.ebody{grid-template-columns:minmax(0,1fr)}}
   .music{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:10px}
   .mhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
   .mhead label{color:var(--muted);font-size:14px;display:flex;gap:6px;align-items:center}
@@ -107,7 +96,7 @@
     <label style="color:var(--muted)">FTP <input id="ftp" type="number" min="50" max="600" value="250"> W</label>
     <button id="btnLoad">Workout laden</button>
     <input type="file" id="file" accept=".zwo,.erg,.mrc,.fit,.txt,.xml" hidden>
-    <button id="btnEdit">Zelf schrijven</button>
+    <button id="btnEdit">Zelf invoeren</button>
     <button id="btnFull" title="Volledig scherm">⛶</button>
   </div>
 </header>
@@ -139,29 +128,6 @@
 
   <div class="chartwrap"><canvas id="chart"></canvas></div>
 
-  <section class="editor" id="editor">
-    <div class="ehead">
-      <b>✏️ Workout schrijven</b>
-      <span id="edStatus" class="edstatus"></span>
-      <button id="btnApply" class="primary" hidden>Toepassen</button>
-    </div>
-    <div class="ebody">
-      <textarea id="edText" spellcheck="false" placeholder="# Mijn workout&#10;10m 50-75%&#10;4x 4m 105% / 3m 55%&#10;8m 60-40%"></textarea>
-      <div class="ehelp">
-        Eén stap per regel — wordt meteen omgezet:
-        <ul>
-          <li><code>5m 65%</code> constant</li>
-          <li><code>10m 50-75%</code> oplopend</li>
-          <li><code>4x 4m 105% / 3m 55%</code> herhaling</li>
-          <li><code>30s 300W</code> in watt</li>
-          <li><code>3m 95% 90rpm</code> met cadans</li>
-          <li><code>5m vrij</code> vrij rijden</li>
-          <li><code># naam</code> titel</li>
-        </ul>
-        Tijd: <code>90s</code> <code>1m30s</code> <code>1:30</code> <code>1h</code>
-      </div>
-    </div>
-  </section>
 
   <section class="music">
     <div class="mhead">
@@ -230,6 +196,24 @@
 </main>
 
 <div id="toast"></div>
+
+<dialog id="dlgEdit">
+  <h3 style="margin-top:0">Workout zelf invoeren</h3>
+  <p>Eén stap per regel. Percentages zijn van je FTP, of gebruik <code>W</code> voor watt.</p>
+  <ul>
+    <li><code>10m 50-75%</code> — oplopend (warming-up)</li>
+    <li><code>5m 65%</code> — constant</li>
+    <li><code>4x 4m 105% / 3m 55%</code> — herhaling</li>
+    <li><code>30s 300W 100rpm</code> — met cadansdoel</li>
+    <li><code>5m vrij</code> — vrij rijden (geen ERG)</li>
+    <li>Tijd: <code>90s</code>, <code>1m30s</code>, <code>1:30</code>, <code>1h</code>. Eerste regel met <code># naam</code> wordt de titel.</li>
+  </ul>
+  <textarea id="txtWorkout"></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+    <button id="btnEditCancel">Annuleren</button>
+    <button id="btnEditOk" class="primary">Laden</button>
+  </div>
+</dialog>
 
 
 <script>
@@ -497,14 +481,10 @@ function workoutToText(w){
   return out.join('\n');
 }
 
-function loadWorkout(w, opts = {}){
+function loadWorkout(w){
   if (!w.segs.length) throw new Error('Workout is leeg');
   stopRide(true);
   S.workout = w;
-  if (!opts.fromEditor){
-    $('edText').value = w.src || workoutToText(w);
-    setEdStatus(`✓ ${w.segs.length} stappen · ${fmt(w.total)}`, 'ok');
-  }
   try { localStorage.setItem('lastWorkout', JSON.stringify(w)); } catch(e){}
   $('wName').textContent = w.name;
   updateMeta();
@@ -1143,33 +1123,15 @@ $('file').onchange = async e => {
     loadWorkout(w); toast(`Geladen: ${w.name}`);
   } catch(err){ log('Laden mislukt: ' + err.message); toast('Laden mislukt: ' + err.message, 5000); }
 };
-/* ---------- Live workout-editor ---------- */
-let edTimer = null, edPending = null;
-function setEdStatus(msg, kind){ const el = $('edStatus'); el.textContent = msg; el.className = 'edstatus ' + (kind || ''); $('edText').classList.toggle('err', kind === 'err'); }
-function rideInProgress(){ return S.running || S.rec.length > 0; }
-function edParse(){
-  const txt = $('edText').value;
-  if (!txt.trim()){ setEdStatus('Typ een workout…'); $('btnApply').hidden = true; return; }
-  try {
-    const w = parseText(txt); w.src = txt; edPending = w;
-    if (rideInProgress()){
-      setEdStatus(`✓ ${w.segs.length} stappen · ${fmt(w.total)} — er loopt een rit, klik Toepassen om te wisselen`, 'wait');
-      $('btnApply').hidden = false;
-    } else applyEditor();
-  } catch(err){ edPending = null; $('btnApply').hidden = true; setEdStatus('⚠ ' + err.message, 'err'); }
-}
-function applyEditor(){
-  if (!edPending) return;
+$('btnEdit').onclick = () => { $('txtWorkout').value = S.workout ? (S.workout.src || workoutToText(S.workout)) : DEFAULT_TXT; $('dlgEdit').showModal(); };
+$('btnEditCancel').onclick = () => $('dlgEdit').close();
+$('btnEditOk').onclick = () => {
   if (S.rec.length > 30 && !confirm('De huidige rit wordt gereset. Exporteer eerst je rit als je die wil bewaren. Doorgaan?')) return;
-  loadWorkout(edPending, { fromEditor: true });
-  setEdStatus(`✓ Ingevoerd: ${edPending.segs.length} stappen · ${fmt(edPending.total)}`, 'ok');
-  $('btnApply').hidden = true; edPending = null;
-}
-$('edText').addEventListener('input', () => { clearTimeout(edTimer); setEdStatus('…', ''); edTimer = setTimeout(edParse, 400); });
-$('btnApply').onclick = applyEditor;
-$('btnEdit').onclick = () => { $('editor').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('edText').focus(); };
+  try { const w = parseText($('txtWorkout').value); w.src = $('txtWorkout').value; loadWorkout(w); $('dlgEdit').close(); toast(`Geladen: ${w.name}`); }
+  catch(err){ alert(err.message); }
+};
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || $('dlgEdit').open) return;
   if (e.code === 'Space'){ e.preventDefault(); startPause(); }
   if (e.key === 'ArrowRight') jump(1);
   if (e.key === 'ArrowLeft') jump(-1);
