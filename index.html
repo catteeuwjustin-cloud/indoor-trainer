@@ -4,6 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Indoor Trainer</title>
+<script>
+/* Foutmeldingen zichtbaar op het scherm (voor tablets zonder console). Bewust in oude JavaScript-stijl. */
+(function(){
+  var shown = 0;
+  function show(msg){
+    if (shown++ > 4) return;
+    var box = document.getElementById('errbox');
+    if (!box){
+      box = document.createElement('div'); box.id = 'errbox';
+      box.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:99;background:#5a1216;color:#fff;border:1px solid #e5484d;border-radius:10px;padding:10px 14px;font:13px/1.4 -apple-system,sans-serif;white-space:pre-wrap;max-height:45vh;overflow:auto';
+      box.appendChild(document.createTextNode('⚠ De app kon niet volledig starten. Stuur een schermafbeelding van dit vak.\n' + navigator.userAgent + '\n'));
+      (document.body || document.documentElement).appendChild(box);
+    }
+    box.appendChild(document.createTextNode('\n• ' + msg));
+  }
+  window.addEventListener('error', function(e){
+    if (e && e.target && e.target !== window && e.target.src) return show('Laden mislukt: ' + e.target.src);
+    show((e.message || 'Onbekende fout') + (e.lineno ? ' (regel ' + e.lineno + ':' + e.colno + ')' : ''));
+  }, true);
+  window.addEventListener('unhandledrejection', function(e){ show('Async: ' + (e.reason && (e.reason.message || e.reason))); });
+  window.addEventListener('load', function(){ setTimeout(function(){ if (!window.__appStarted) show('Het hoofdscript is niet gestart.'); }, 1500); });
+})();
+</script>
 <style>
   :root{
     --bg:#0e1116; --panel:#171b22; --panel2:#1f2530; --text:#e8ecf2; --muted:#8a94a6; --line:#2a313d;
@@ -1447,6 +1470,7 @@ try {
   } catch(e){ log(`Workout ${p} laden mislukt: ${e.message}`); }
 })();
 setInterval(tick, 250);
+window.__appStarted = true;
 </script>
 </body>
 </html>
