@@ -651,15 +651,7 @@ async function connectTrainer(){
       ibd.addEventListener('characteristicvaluechanged', e => parseIndoorBike(e.target.value));
       await ibd.startNotifications();
       const cp = await ftms.getCharacteristic(UUID.FTMS_CP);
-      cp.addEventListener('characteristicvaluechanged', e => {
-        const v = e.target.value; if (v.getUint8(0) === 0x80 && v.getUint8(2) !== 1){
-          log(`Trainer weigerde commando 0x${v.getUint8(1).toString(16)} (code ${v.getUint8(2)})`);
-          if (v.getUint8(1) === 0x04 && !S.resFallback){ // weerstandsniveau niet ondersteund -> via helling
-            S.resFallback = true; S.lastResSent = null; S.lastCmdTime = 0;
-            toast('Trainer ondersteunt geen weerstandsniveau — weerstand wordt via helling geregeld', 4000);
-          }
-        }
-      });
+      cp.addEventListener('characteristicvaluechanged', e => onCpResponse(e.target.value));
       await cp.startNotifications();
       DEV.trainer.proto = 'ftms'; DEV.trainer.cp = cp;
       try { // ondersteund weerstandsbereik (min/max in 0.1-eenheden)
@@ -677,15 +669,51 @@ async function connectTrainer(){
       DEV.trainer.proto = 'fec'; DEV.trainer.cp = await fec.getCharacteristic(UUID.FEC_TX);
     }
     S.lastCmdSent = null; S.lastResSent = null; S.resFallback = false;
+    S.ctrl.erg = null; S.ctrl.ergSentAt = 0; S.ctrl.warned = {};
   };
   watchDisconnect(device, 'trainer', 'btnTrainer', setup);
   await connectGatt(device, 'trainer', 'btnTrainer', setup);
 }
+/* ---------- Antwoord van de trainer opvolgen (FTMS control point) ---------- */
+const CP_CODE = { 1: 'ok', 2: 'commando niet ondersteund', 3: 'ongeldige waarde', 4: 'commando mislukt', 5: 'geen controle: een andere app of fietscomputer bestuurt de trainer' };
+const CP_OP = { 0x00: 'controle vragen', 0x04: 'weerstand', 0x05: 'doelvermogen (ERG)', 0x07: 'start', 0x11: 'helling' };
+S.ctrl = { erg: null, ergAt: 0, ergSentAt: 0, lastReq: 0, warned: {} };
+function warnOnce(key, msg, ms = 8000){ if (S.ctrl.warned[key]) return; S.ctrl.warned[key] = true; toast(msg, ms); log(msg); }
+function onCpResponse(v){
+  if (v.byteLength < 3 || v.getUint8(0) !== 0x80) return;
+  const op = v.getUint8(1), code = v.getUint8(2), now = performance.now();
+  if (op === 0x05){ S.ctrl.erg = code; S.ctrl.ergAt = now; }
+  if (code === 1) return;
+  log(`Trainer weigerde ${CP_OP[op] || '0x' + op.toString(16)}: ${CP_CODE[code] || 'code ' + code}`);
+  if (code === 5){
+    warnOnce('ctrl', '⚠ De trainer weigert de opdrachten: een andere app of fietscomputer heeft de controle. Sluit JOIN, Zwift, Tacx- of Garmin-apps en koppel je Garmin Edge/horloge los van de trainer. De app vraagt de controle opnieuw.', 12000);
+    if (now - S.ctrl.lastReq > 5000){ S.ctrl.lastReq = now; cpWrite([0x00]); cpWrite([0x07]); S.lastCmdSent = null; S.lastResSent = null; }
+  } else if (op === 0x04 && !S.resFallback){ // weerstandsniveau niet ondersteund -> via helling
+    S.resFallback = true; S.lastResSent = null; S.lastCmdTime = 0;
+    toast('Trainer ondersteunt geen weerstandsniveau — weerstand wordt via helling geregeld', 4000);
+  } else if (op === 0x05){
+    warnOnce('erg' + code, `⚠ De trainer weigert het doelvermogen (${CP_CODE[code] || 'code ' + code}).`, 8000);
+  }
+}
+function ergStatus(){
+  if (!DEV.trainer?.cp) return demoTimer ? '✓' : '';
+  if (DEV.trainer.proto !== 'ftms') return '(FE-C)';
+  const c = S.ctrl, now = performance.now();
+  if (c.erg === 1 && c.ergAt >= c.ergSentAt - 50) return '✓ bevestigd';
+  if (c.erg != null && c.erg !== 1 && c.ergAt >= c.ergSentAt - 50) return '✗ ' + (c.erg === 5 ? 'geen controle' : CP_CODE[c.erg] || 'geweigerd');
+  if (c.ergSentAt && now - c.ergSentAt > 3000) return '⚠ geen antwoord';
+  return '…';
+}
 function cpWrite(bytes){
   const t = DEV.trainer; if (!t?.cp) return Promise.resolve();
   const data = new Uint8Array(bytes);
-  cpQueue = cpQueue.then(() => (t.cp.writeValueWithResponse ? t.cp.writeValueWithResponse(data) : t.cp.writeValue(data)))
-                   .catch(e => log('Schrijven naar trainer mislukt: ' + e.message));
+  cpQueue = cpQueue.then(async () => {
+    try { await (t.cp.writeValueWithResponse ? t.cp.writeValueWithResponse(data) : t.cp.writeValue(data)); }
+    catch(e1){ // sommige browsers (bv. Bluefy): andere schrijfmethode proberen
+      try { await t.cp.writeValue(data); }
+      catch(e2){ warnOnce('write', '⚠ Opdracht naar de trainer sturen mislukt: ' + btMsg(e2)); }
+    }
+  });
   return cpQueue;
 }
 function fecPacket(page){ // ANT+ FE-C over BLE (Tacx): 0xA4 len 0x4F ch payload(8) checksum
@@ -696,7 +724,7 @@ function fecPacket(page){ // ANT+ FE-C over BLE (Tacx): 0xA4 len 0x4F ch payload
 function sendTargetPower(w){
   const t = DEV.trainer; if (!t?.cp) return;
   w = clamp(Math.round(w), 0, 2000);
-  if (t.proto === 'ftms') cpWrite([0x05, w & 0xFF, (w >> 8) & 0xFF]);
+  if (t.proto === 'ftms'){ S.ctrl.ergSentAt = performance.now(); cpWrite([0x05, w & 0xFF, (w >> 8) & 0xFF]); }
   else { const v = w*4; cpWrite(fecPacket([0x31,0xFF,0xFF,0xFF,0xFF,0xFF, v & 0xFF, (v>>8) & 0xFF])); }
 }
 function sendResistance(pct){ // handmatige weerstand 0–100%
@@ -1077,7 +1105,12 @@ function render(force){
     const cads = r.filter(x => x.cad > 0); $('sCad').textContent = cads.length ? Math.round(cads.reduce((a,x)=>a+x.cad,0)/cads.length) + ' rpm' : '–';
     const hrs = r.filter(x => x.hr); $('sHr').textContent = hrs.length ? Math.round(hrs.reduce((a,x)=>a+x.hr,0)/hrs.length) + ' bpm' : '–';
   } else ['sAvg','sNp','sIf','sTss','sKj','sCad','sHr'].forEach(id => $(id).textContent = '–');
-  $('sCmd').textContent = S.ergCmd != null ? S.ergCmd + ' W (ERG)' : (DEV.trainer || demoTimer ? `weerstand ${S.manualRes}%${S.resFallback ? ` (≈${(S.manualRes/10).toFixed(1)}% helling)` : ''}` : '–');
+  // ERG-status ook groot onder het doelvermogen tonen
+  if (target != null){
+    const st = !S.erg ? 'ERG uit' : !DEV.trainer?.cp && !demoTimer ? '⚠ trainer niet verbonden — ERG werkt niet' : 'ERG ' + ergStatus();
+    $('vTargetSub').textContent = `${Math.round(target/S.ftp*100)}% FTP · ${zoneOf(target/S.ftp)[2]} · ${st}`;
+  }
+  $('sCmd').textContent = S.ergCmd != null ? `${S.ergCmd} W (ERG ${ergStatus()})` : (DEV.trainer || demoTimer ? `weerstand ${S.manualRes}%${S.resFallback ? ` (≈${(S.manualRes/10).toFixed(1)}% helling)` : ''}` : '–');
   const gradeMode = S.freeMode === 'grade';
   $('vManRes').textContent = gradeMode ? `${S.grade > 0 ? '+' : ''}${S.grade.toFixed(1)}%` : S.manualRes + '%';
   if (S.ergCmd == null && gradeMode){
