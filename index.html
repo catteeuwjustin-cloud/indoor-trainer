@@ -78,6 +78,25 @@
   dialog textarea{width:100%;height:240px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:14px ui-monospace,Menlo,monospace;padding:10px}
   dialog p, dialog li{color:var(--muted);font-size:14px}
   dialog code{color:var(--text)}
+  dialog.wide{max-width:1100px;max-height:90vh}
+  dialog::backdrop{background:#000a}
+  .libhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .libsec{margin:16px 0 8px;font-size:15px;color:var(--muted);font-weight:600}
+  .zonebar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .zcell{border-radius:8px;padding:6px 8px;background:var(--panel2);border-top:4px solid}
+  .zcell b{display:block;font-size:13px} .zcell span{color:var(--muted);font-size:12px;display:block}
+  .zcell .w{color:var(--text);font-size:14px;font-variant-numeric:tabular-nums}
+  .libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .wcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:6px;cursor:pointer;text-align:left}
+  .wcard:hover{border-color:var(--accent)}
+  .wcard canvas{width:100%;height:56px;display:block}
+  .wcard .t{font-weight:600}
+  .wcard .tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:6px;color:#000;margin-right:6px;vertical-align:1px}
+  .wcard .d{color:var(--muted);font-size:13px}
+  .wcard .k{font-size:13px;font-variant-numeric:tabular-nums}
+  .wcard .m{color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:6px}
+  .wcard .del{background:none;border:none;color:var(--muted);padding:0;font-size:12px}
+  @media (max-width:640px){.zonebar{grid-template-columns:repeat(3,minmax(0,1fr))}}
   .warnbox{background:#3a2a10;border:1px solid var(--warn);color:#f5dc9a;padding:10px 14px;border-radius:10px;font-size:14px}
   @media (max-width:1100px){.tiles{grid-template-columns:repeat(4,1fr)} .tile.big .val{font-size:56px} .tile .val{font-size:36px}}
   @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)} .tile .val{font-size:34px} .tile.big .val{font-size:44px}}
@@ -96,6 +115,7 @@
     <label style="color:var(--muted)">FTP <input id="ftp" type="number" min="50" max="600" value="250"> W</label>
     <button id="btnLoad">Workout laden</button>
     <input type="file" id="file" accept=".zwo,.erg,.mrc,.fit,.txt,.xml" hidden>
+    <button id="btnLib">Workouts kiezen</button>
     <button id="btnEdit">Zelf invoeren</button>
     <button id="btnFull" title="Volledig scherm">⛶</button>
   </div>
@@ -211,8 +231,21 @@
   <textarea id="txtWorkout"></textarea>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
     <button id="btnEditCancel">Annuleren</button>
+    <button id="btnEditSave" title="Bewaar in 'Mijn workouts' bij Workouts kiezen">💾 Opslaan in mijn workouts</button>
     <button id="btnEditOk" class="primary">Laden</button>
   </div>
+</dialog>
+
+<dialog id="dlgLib" class="wide">
+  <div class="libhead">
+    <h3 style="margin:0">Workouts kiezen</h3>
+    <label style="color:var(--muted)">Jouw FTP <input id="libFtp" type="number" min="50" max="600"> W</label>
+    <button id="btnLibClose">Sluiten</button>
+  </div>
+  <div class="zonebar" id="zoneTable"></div>
+  <div id="libMine"></div>
+  <h4 class="libsec">Voorstellen · 1 uur</h4>
+  <div class="libgrid" id="libGrid"></div>
 </dialog>
 
 
@@ -1106,7 +1139,8 @@ $('btnErg').onclick     = () => { S.erg = !S.erg; S.lastCmdSent = null; render(t
 $('btnMatch').onclick   = () => { S.match = !S.match; S.matchOffset = 0; if (S.match && !DEV.pedals && !demoTimer) toast('Verbind je vermogenspedalen voor power match'); render(true); };
 $('btnTcx').onclick     = exportTCX;
 $('btnFull').onclick    = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
-$('ftp').onchange       = e => { S.ftp = clamp(+e.target.value || 250, 50, 600); try { localStorage.setItem('ftp', S.ftp); } catch(x){} updateMeta(); render(true); };
+function setFtp(v){ S.ftp = clamp(+v || 250, 50, 600); $('ftp').value = S.ftp; $('libFtp').value = S.ftp; try { localStorage.setItem('ftp', S.ftp); } catch(x){} updateMeta(); render(true); if ($('dlgLib').open) renderLib(); }
+$('ftp').onchange       = e => setFtp(e.target.value);
 $('src').onchange       = () => { S.powerBuf = []; };
 $('btnLoad').onclick    = () => $('file').click();
 $('file').onchange = async e => {
@@ -1125,13 +1159,120 @@ $('file').onchange = async e => {
 };
 $('btnEdit').onclick = () => { $('txtWorkout').value = S.workout ? (S.workout.src || workoutToText(S.workout)) : DEFAULT_TXT; $('dlgEdit').showModal(); };
 $('btnEditCancel').onclick = () => $('dlgEdit').close();
+$('btnEditSave').onclick = () => {
+  try {
+    const txt = $('txtWorkout').value, w = parseText(txt);
+    const mine = loadMine(), i = mine.findIndex(m => m.name === w.name);
+    if (i >= 0 && !confirm(`"${w.name}" bestaat al in je workouts. Overschrijven?`)) return;
+    if (i >= 0) mine[i] = { name: w.name, txt }; else mine.push({ name: w.name, txt });
+    saveMine(mine); toast(`Opgeslagen in mijn workouts: ${w.name}`);
+  } catch(err){ alert(err.message); }
+};
+
+/* ---------- Workoutbibliotheek: 10 voorstellen van 1 uur ---------- */
+const LIBRARY = [
+  { zone: 1, name: 'Herstel — rustig losrijden', desc: 'Actief herstel na een zware dag. Benen los, hartslag laag.',
+    txt: `# Herstel — rustig losrijden\n10m 40-55% Inrijden\n40m 55% Herstel\n10m 55-40% Uitrijden` },
+  { zone: 2, name: 'Duur — Z2 basis', desc: 'Lange constante duurinspanning voor je aerobe basis en vetverbranding.',
+    txt: `# Duur — Z2 basis\n10m 45-65% Warming-up\n45m 68% Duur\n5m 60-45% Cooling-down` },
+  { zone: 3, name: 'Tempo 3×12', desc: 'Stevig tempo, net onder sweet spot. Bouwt uithouding op hoger tempo.',
+    txt: `# Tempo 3×12\n10m 45-70% Warming-up\n3x 12m 82% / 3m 60%\n5m 60-45% Cooling-down` },
+  { zone: 4, name: 'Sweet spot 3×10', desc: 'Veel trainingseffect voor weinig vermoeidheid. Ideale FTP-bouwer.',
+    txt: `# Sweet spot 3×10\n10m 45-75% Warming-up\n3x 10m 90% / 5m 55%\n5m 60-45% Cooling-down` },
+  { zone: 4, name: 'Sweet spot 2×20', desc: 'Klassieker: twee lange blokken op sweet spot. Mentaal én fysiek sterk.',
+    txt: `# Sweet spot 2×20\n10m 45-75% Warming-up\n2x 20m 90% / 5m 50%` },
+  { zone: 4, name: 'Drempel 4×8', desc: 'Intervallen rond je FTP. Verhoogt rechtstreeks je drempelvermogen.',
+    txt: `# Drempel 4×8\n10m 45-75% Warming-up\n4x 8m 100% / 4m 55%\n2m 50-40% Cooling-down` },
+  { zone: 4, name: 'Over-unders', desc: 'Wisselen net onder en net boven FTP. Leert je melkzuur verwerken.',
+    txt: `# Over-unders\n10m 45-75% Warming-up\n4x 2m 95% / 1m 110%\n4m 55%\n4x 2m 95% / 1m 110%\n4m 55%\n4x 2m 95% / 1m 110%\n4m 55%\n2m 50-40% Cooling-down` },
+  { zone: 5, name: 'VO2max 5×4', desc: 'Lange VO2max-intervallen. Vergroot je motor (maximale zuurstofopname).',
+    txt: `# VO2max 5×4\n10m 45-75% Warming-up\n2m 100% Opener\n3m 55%\n5x 4m 115% / 4m 50%\n5m 55-40% Cooling-down` },
+  { zone: 5, name: 'VO2max 30/30', desc: '3 blokken van 10× 30 s hard / 30 s rustig. Veel tijd boven VO2max.',
+    txt: `# VO2max 30/30\n10m 45-75% Warming-up\n10x 30s 125% / 30s 50%\n5m 55%\n10x 30s 125% / 30s 50%\n5m 55%\n10x 30s 125% / 30s 50%\n5m 55%\n5m 55-40% Cooling-down` },
+  { zone: 6, name: 'Sprint & anaeroob', desc: 'Korte, explosieve inspanningen. Tip: zet ERG uit voor de sprints.',
+    txt: `# Sprint & anaeroob\n10m 45-75% Warming-up\n5m 65%\n6x 30s 150% / 4m30s 55%\n8x 10s 200% / 50s 55%\n7m 55-40% Cooling-down` },
+];
+function loadMine(){ try { return JSON.parse(localStorage.getItem('myWorkouts') || '[]'); } catch(e){ return []; } }
+function saveMine(m){ try { localStorage.setItem('myWorkouts', JSON.stringify(m)); } catch(e){ toast('Opslaan mislukt in deze browser'); } }
+const ZCOL = ['--z1','--z2','--z3','--z4','--z5','--z6'];
+function drawMini(cv, w){
+  const dpr = devicePixelRatio || 1, W = cv.clientWidth || 250, H = cv.clientHeight || 56;
+  cv.width = W*dpr; cv.height = H*dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const max = Math.max(1.3, ...w.segs.map(s => s.free ? 0.5 : Math.max(segFtpFrac(s,s.lo), segFtpFrac(s,s.hi)))) * 1.05;
+  const X = t => t / w.total * W, Y = f => H - f / max * H;
+  for (const s of w.segs){
+    const n = Math.max(1, Math.ceil(X(s.dur)/3));
+    for (let k=0;k<n;k++){
+      const f0 = s.free ? 0.5 : segFtpFrac(s, s.lo + (s.hi-s.lo)*k/n), f1 = s.free ? 0.5 : segFtpFrac(s, s.lo + (s.hi-s.lo)*(k+1)/n);
+      const x0 = X(s.start + s.dur*k/n), x1 = X(s.start + s.dur*(k+1)/n);
+      g.fillStyle = css(zoneOf((f0+f1)/2)[1]);
+      g.beginPath(); g.moveTo(x0,H); g.lineTo(x0,Y(f0)); g.lineTo(x1+0.6,Y(f1)); g.lineTo(x1+0.6,H); g.fill();
+    }
+  }
+  g.strokeStyle = '#ffffff66'; g.setLineDash([3,3]); g.beginPath(); g.moveTo(0,Y(1)); g.lineTo(W,Y(1)); g.stroke();
+}
+function workoutStats(w){
+  let s4 = 0, n = 0;
+  for (const s of w.segs) for (let k=0;k<s.dur;k+=5){ const f = s.free ? 0.5 : segFtpFrac(s, s.lo + (s.hi-s.lo)*k/s.dur); const d = Math.min(5, s.dur-k); s4 += Math.pow(f,4)*d; n += d; }
+  const IF = Math.pow(s4/n, 0.25); return { IF, tss: Math.round(w.total/3600*IF*IF*100) };
+}
+function keySet(w){ // belangrijkste intervallen in watt voor jouw FTP
+  const g = new Map();
+  for (const s of w.segs){ if (s.free || s.lo !== s.hi) continue; const f = segFtpFrac(s, s.lo); if (f < 0.8) continue;
+    const k = s.dur + '|' + s.lo + '|' + s.unit; g.set(k, { n: (g.get(k)?.n || 0) + 1, s, f }); }
+  const top = [...g.values()].sort((a,b) => b.f*b.s.dur*b.n - a.f*a.s.dur*a.n).slice(0, 2);
+  if (!top.length){ const s = w.segs.reduce((a,b) => (b.dur > a.dur ? b : a)); return s.free ? 'vrij rijden' : `${fmtDur(s.dur)} @ ${segWatts(s, 0.5)} W`; }
+  return top.map(x => `${x.n > 1 ? x.n + '× ' : ''}${fmtDur(x.s.dur)} @ ${segWatts(x.s, 0)} W`).join(' · ');
+}
+function card(w, opts){
+  const el = document.createElement('div'); el.className = 'wcard'; el.tabIndex = 0;
+  const st = workoutStats(w), z = opts.zone ? ZONES[opts.zone-1] : null;
+  el.innerHTML = `<div class="t">${z ? `<span class="tag" style="background:${css(z[1])}">Z${opts.zone}</span>` : ''}</div>
+    <canvas></canvas><div class="d"></div><div class="k"></div>
+    <div class="m"><span>${fmt(w.total)} · IF ${st.IF.toFixed(2)} · ${st.tss} TSS</span>${opts.onDelete ? '<button class="del" title="Verwijderen">🗑 verwijderen</button>' : ''}</div>`;
+  el.querySelector('.t').append(document.createTextNode(w.name));
+  el.querySelector('.d').textContent = opts.desc || '';
+  el.querySelector('.k').textContent = 'Kern: ' + keySet(w);
+  const pick = () => {
+    if (S.rec.length > 30 && !confirm('De huidige rit wordt gereset. Exporteer eerst je rit als je die wil bewaren. Doorgaan?')) return;
+    const fresh = parseText(opts.txt); fresh.src = opts.txt; loadWorkout(fresh); $('dlgLib').close(); toast(`Geladen: ${fresh.name}`);
+  };
+  el.onclick = e => { if (e.target.closest('.del')){ e.stopPropagation(); opts.onDelete(); } else pick(); };
+  el.onkeydown = e => { if (e.key === 'Enter') pick(); };
+  requestAnimationFrame(() => drawMini(el.querySelector('canvas'), w));
+  return el;
+}
+function renderLib(){
+  // zones in watt voor jouw FTP
+  const zt = $('zoneTable'); zt.innerHTML = '';
+  const bounds = [0, 0.55, 0.75, 0.90, 1.05, 1.20];
+  ZONES.forEach((z, i) => {
+    const lo = Math.round(bounds[i] * S.ftp), hi = i < 5 ? Math.round(ZONES[i][0] * S.ftp) - 1 : null;
+    const c = document.createElement('div'); c.className = 'zcell'; c.style.borderTopColor = css(z[1]);
+    c.innerHTML = `<b></b><span class="w">${i === 0 ? `< ${hi + 1}` : hi ? `${lo}–${hi}` : `> ${lo}`} W</span><span>${i === 0 ? '< 55' : i < 5 ? `${Math.round(bounds[i]*100)}–${Math.round(ZONES[i][0]*100)}` : '> 120'}% FTP</span>`;
+    c.querySelector('b').textContent = z[2]; zt.appendChild(c);
+  });
+  const grid = $('libGrid'); grid.innerHTML = '';
+  for (const L of LIBRARY){ const w = parseText(L.txt); grid.appendChild(card(w, { zone: L.zone, desc: L.desc, txt: L.txt })); }
+  const mine = loadMine(), box = $('libMine'); box.innerHTML = '';
+  if (mine.length){
+    const h = document.createElement('h4'); h.className = 'libsec'; h.textContent = 'Mijn workouts'; box.appendChild(h);
+    const g2 = document.createElement('div'); g2.className = 'libgrid'; box.appendChild(g2);
+    mine.forEach((m, i) => { try { const w = parseText(m.txt);
+      g2.appendChild(card(w, { txt: m.txt, desc: 'Eigen workout', onDelete: () => { if (confirm(`"${m.name}" verwijderen uit je workouts?`)){ const a = loadMine(); a.splice(i,1); saveMine(a); renderLib(); } } }));
+    } catch(e){} });
+  }
+}
+$('btnLib').onclick = () => { $('libFtp').value = S.ftp; $('dlgLib').showModal(); renderLib(); };
+$('btnLibClose').onclick = () => $('dlgLib').close();
+$('libFtp').onchange = e => setFtp(e.target.value);
 $('btnEditOk').onclick = () => {
   if (S.rec.length > 30 && !confirm('De huidige rit wordt gereset. Exporteer eerst je rit als je die wil bewaren. Doorgaan?')) return;
   try { const w = parseText($('txtWorkout').value); w.src = $('txtWorkout').value; loadWorkout(w); $('dlgEdit').close(); toast(`Geladen: ${w.name}`); }
   catch(err){ alert(err.message); }
 };
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || $('dlgEdit').open) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || $('dlgEdit').open || $('dlgLib').open) return;
   if (e.code === 'Space'){ e.preventDefault(); startPause(); }
   if (e.key === 'ArrowRight') jump(1);
   if (e.key === 'ArrowLeft') jump(-1);
